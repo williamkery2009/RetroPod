@@ -33,8 +33,9 @@ class JioSaavnService {
   static Future<void> saveInstance(String value) async {
     final uri = PipedService.validateInstance(value);
     final prefs = await SharedPreferences.getInstance();
-    if (!await prefs.setString(_key, uri.toString()))
+    if (!await prefs.setString(_key, uri.toString())) {
       throw StateError('Could not save server');
+    }
   }
 
   Future<Map> _get(String path, [Map<String, String>? query]) async {
@@ -45,8 +46,9 @@ class JioSaavnService {
       final response = await _http
           .get(base.replace(path: '${base.path}$path', queryParameters: query))
           .timeout(const Duration(seconds: 12));
-      if (response.statusCode != 200)
+      if (response.statusCode != 200) {
         throw const FormatException('Server unavailable');
+      }
       final data = jsonDecode(utf8.decode(response.bodyBytes));
       if (data is! Map || data['success'] == false || data['error'] != null) {
         throw const FormatException('Invalid server response');
@@ -76,8 +78,9 @@ class JioSaavnService {
       if (uri == null ||
           uri.scheme != 'https' ||
           uri.userInfo.isNotEmpty ||
-          !uri.host.endsWith('.saavncdn.com'))
+          !uri.host.endsWith('.saavncdn.com')) {
         continue;
+      }
       final quality =
           int.tryParse(
             RegExp(
@@ -95,10 +98,11 @@ class JioSaavnService {
   static List<MusicMetadata> parseResults(Object? response) {
     final data = response is Map ? response['data'] : null;
     final rows = data is Map ? data['results'] : null;
-    if (rows is! List)
+    if (rows is! List) {
       throw const JioSaavnException(
         'Invalid JioSaavn response (JIO_RESPONSE).',
       );
+    }
     final seen = <String>{};
     final songs = <MusicMetadata>[];
     for (final row in rows.whereType<Map>()) {
@@ -109,8 +113,9 @@ class JioSaavnService {
           title is! String ||
           title.trim().isEmpty ||
           _best(row['downloadUrl']) == null ||
-          !seen.add(id))
+          !seen.add(id)) {
         continue;
+      }
       final artists = row['artists'];
       final primary = artists is Map ? artists['primary'] : null;
       final names = primary is List
@@ -148,8 +153,9 @@ class JioSaavnService {
     final uri = Uri.tryParse(song.filePath ?? '');
     if (uri?.scheme != 'retropod' ||
         uri?.host != 'jiosaavn' ||
-        uri!.pathSegments.length != 1)
+        uri!.pathSegments.length != 1) {
       return null;
+    }
     return _id.hasMatch(uri.pathSegments.single)
         ? uri.pathSegments.single
         : null;

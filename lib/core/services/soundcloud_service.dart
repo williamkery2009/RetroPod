@@ -26,10 +26,11 @@ class SoundCloudService {
 
   Future<String> _discover() async {
     final home = await _get(Uri.https('soundcloud.com', '/'));
-    if (home.statusCode != 200)
+    if (home.statusCode != 200) {
       throw const SoundCloudException(
         'SoundCloud is unavailable (SC_DISCOVERY). Try again later.',
       );
+    }
     final direct = _publicId.firstMatch(home.body);
     if (direct != null) return direct.group(1)!;
     final scripts = RegExp(
@@ -78,13 +79,15 @@ class SoundCloudService {
         _clientId = null;
         continue;
       }
-      if (response.statusCode != 200)
+      if (response.statusCode != 200) {
         throw const SoundCloudException(
           'SoundCloud rejected this request (SC_API). Try again later.',
         );
+      }
       final data = jsonDecode(utf8.decode(response.bodyBytes));
-      if (data is! Map)
+      if (data is! Map) {
         throw const FormatException('Invalid SoundCloud response');
+      }
       return data;
     }
     throw const SoundCloudException('SoundCloud is unavailable (SC_API).');
@@ -93,8 +96,9 @@ class SoundCloudService {
   static List<Map> _candidates(Map track) {
     if (track['streamable'] != true ||
         track['policy'] != 'ALLOW' ||
-        track['sharing'] == 'private')
+        track['sharing'] == 'private') {
       return [];
+    }
     final media = track['media'];
     final rows = media is Map ? media['transcodings'] : null;
     if (rows is! List) return [];
@@ -149,8 +153,9 @@ class SoundCloudService {
           title is! String ||
           title.trim().isEmpty ||
           _candidates(row).isEmpty ||
-          !seen.add(id))
+          !seen.add(id)) {
         continue;
+      }
       final user = row['user'];
       final name = user is Map ? user['username'] : null;
       final art = row['artwork_url'];
@@ -183,8 +188,9 @@ class SoundCloudService {
     final uri = Uri.tryParse(song.filePath ?? '');
     if (uri?.scheme != 'retropod' ||
         uri?.host != 'soundcloud' ||
-        uri!.pathSegments.length != 1)
+        uri!.pathSegments.length != 1) {
       return null;
+    }
     final id = uri.pathSegments.single;
     return _idPattern.hasMatch(id) ? id : null;
   }
@@ -208,8 +214,9 @@ class SoundCloudService {
             url.scheme != 'https' ||
             url.userInfo.isNotEmpty ||
             !(url.host.endsWith('.sndcdn.com') ||
-                url.host.endsWith('.soundcloud.cloud')))
+                url.host.endsWith('.soundcloud.cloud'))) {
           continue;
+        }
         return song.copyWith(
           filePath: url.toString(),
           mimeType: candidate['format']['protocol'] == 'hls'

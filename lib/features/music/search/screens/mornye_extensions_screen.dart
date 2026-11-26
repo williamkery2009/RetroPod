@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:retropod/core/services/mornye_extension_service.dart';
@@ -18,7 +20,7 @@ class _MornyeExtensionsScreenState extends State<MornyeExtensionsScreen> {
   @override
   void initState() {
     super.initState();
-    _refresh();
+    unawaited(_refresh());
   }
 
   Future<void> _refresh() async {
@@ -70,7 +72,7 @@ class _MornyeExtensionsScreenState extends State<MornyeExtensionsScreen> {
               content: SingleChildScrollView(
                 child: Text(
                   'Third-party extension code runs on this device.\n\n'
-                  'Requested permissions:\n${manifest['permissions']}\n\n'
+                  'Requested permissions:\n${_permissions(manifest['permissions'])}\n\n'
                   'Some providers need their own account or verification. '
                   'Browser sign-in and Mornye session grants are not supported yet.',
                 ),
@@ -95,6 +97,18 @@ class _MornyeExtensionsScreenState extends State<MornyeExtensionsScreen> {
     }
     _installed = await _service.installed();
   });
+
+  String _permissions(Object? value) {
+    if (value is! Map) return 'No declared permissions';
+    final domains = value['network'];
+    return [
+      if (domains is List && domains.isNotEmpty)
+        'Network: ${domains.join(', ')}',
+      if (value['storage'] == true) 'Private extension storage',
+      if (value['file'] == true) 'Private audio and extension files',
+      if (value['allowHttp'] == true) 'Unencrypted HTTP requests',
+    ].join('\n');
+  }
 
   Future<void> _settings(Map<String, dynamic> extension) async {
     await _run(() async {
@@ -299,11 +313,12 @@ class _ExtensionSettingsState extends State<_ExtensionSettings> {
                         );
                         if (context.mounted) Navigator.pop(context);
                       } catch (_) {
-                        if (mounted)
+                        if (mounted) {
                           setState(() {
                             _saving = false;
                             _error = 'Could not apply settings.';
                           });
+                        }
                       }
                     },
               child: const Text('Save'),
@@ -329,8 +344,9 @@ class _ExtensionSettingsState extends State<_ExtensionSettings> {
         ],
       );
     }
-    if (field['type'] == 'action')
-      return Text('$label: requires Mornye account authorization.');
+    if (field['type'] == 'action') {
+      return Text('$label: extension actions are not supported yet.');
+    }
     if (field['options'] is List && (field['options'] as List).isNotEmpty) {
       return CupertinoButton(
         onPressed: _saving
@@ -357,8 +373,9 @@ class _ExtensionSettingsState extends State<_ExtensionSettings> {
                     ),
                   ),
                 );
-                if (selected != null && mounted)
+                if (selected != null && mounted) {
                   setState(() => _values[key] = selected);
+                }
               },
         child: Text('$label: ${value ?? ''}'),
       );

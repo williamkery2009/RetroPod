@@ -1,26 +1,25 @@
 import 'dart:async';
 
-import 'package:retropod/core/services/mornye_extension_service.dart';
-import 'package:retropod/features/music/search/screens/mornye_extensions_screen.dart';
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:retropod/core/models/music_metadata.dart';
 import 'package:retropod/core/navigation/routes.dart';
 import 'package:retropod/core/services/audio_player_service.dart';
+import 'package:retropod/core/services/jiosaavn_service.dart';
+import 'package:retropod/core/services/mornye_extension_service.dart';
 import 'package:retropod/core/services/online_music_service.dart';
 import 'package:retropod/core/services/piped_service.dart';
 import 'package:retropod/core/services/soundcloud_service.dart';
-import 'package:retropod/core/services/jiosaavn_service.dart';
 import 'package:retropod/core/services/youtube_music_service.dart';
 import 'package:retropod/core/services/youtube_playback_error.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:retropod/core/widgets/input_text_bar.dart';
 import 'package:retropod/features/custom_screen_elements/custom_input_text_screen.dart';
+import 'package:retropod/features/music/search/screens/mornye_extensions_screen.dart';
 import 'package:retropod/features/now_playing/models/now_playing_model.dart';
 import 'package:retropod/features/now_playing/provider/now_playing_details_provider.dart';
 import 'package:retropod/features/status_bar/widgets/status_bar.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class OnlineMusicScreen extends ConsumerStatefulWidget {
   const OnlineMusicScreen({super.key});
@@ -227,16 +226,18 @@ class _OnlineMusicScreenState extends ConsumerState<OnlineMusicScreen>
                         } else {
                           await PipedService.saveInstance(controller.text);
                         }
-                        if (dialogContext.mounted)
+                        if (dialogContext.mounted) {
                           Navigator.of(dialogContext).pop();
+                        }
                       } catch (_) {
-                        if (dialogContext.mounted)
+                        if (dialogContext.mounted) {
                           update(() {
                             saving = false;
                             validation =
                                 'Could not save. Enter an HTTPS API URL '
                                 'without credentials, query or fragment.';
                           });
+                        }
                       }
                     },
               child: const Text('Save'),
@@ -330,7 +331,7 @@ class _OnlineMusicScreenState extends ConsumerState<OnlineMusicScreen>
             _source == MusicSource.youtubePiped)
           CupertinoButton(
             padding: EdgeInsets.zero,
-            onPressed: _playing ? null : () => _editProviderServer(),
+            onPressed: _playing ? null : _editProviderServer,
             child: const Text('Piped server', style: TextStyle(fontSize: 12)),
           ),
         if (_source == MusicSource.jiosaavn)

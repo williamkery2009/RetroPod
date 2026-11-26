@@ -39,7 +39,8 @@ fn dispatch(v: Value) -> Result<Value, String> {
             let request = ProviderDownloadRequest {
                 track_id: string(&v,"trackId")?.into(), quality: string(&v,"quality")?.into(),
                 output_path: string(&v,"path")?.into(), item_id: string(&v,"itemId")?.into(),
-                prepared_context: v["track"].as_object().cloned(),
+                // Resolve fresh provider state; search metadata is not a prepared context.
+                prepared_context: None,
             };
             parsed(m.download(id, request, 60000).map_err(|e| e.to_string())?)
         },
@@ -87,7 +88,7 @@ mod package_tests {
     fn installs_searches_prepares_audio_and_persists_enabled_state() {
         let dir = tempfile::tempdir().unwrap();
         let package = dir.path().join("fixture.sflx");
-        let manifest = json!({"name":"fixture", "displayName":"Fixture", "version":"1.0.0",
+        let manifest = json!({"name":"fixture", "displayName":"Fixture", "version":"1.0.0", "description":"Runtime installation fixture",
             "type":["metadata_provider","download_provider"],
             "permissions":{"file":true,"storage":true}});
         let source = r#"registerExtension({

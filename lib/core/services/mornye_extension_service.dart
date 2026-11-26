@@ -20,7 +20,6 @@ class MornyeExtensionService {
   static bool get supported =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
   final MethodChannel _channel;
-  final Map<String, Map<String, dynamic>> _tracks = {};
 
   Future<Object?> call(String method, [Map<String, dynamic>? args]) async {
     try {
@@ -86,10 +85,7 @@ class MornyeExtensionService {
   }
 
   static List<Map<String, dynamic>> _maps(Object? value) => value is List
-      ? value
-            .whereType<Map>()
-            .map((row) => Map<String, dynamic>.from(row))
-            .toList()
+      ? value.whereType<Map>().map(Map<String, dynamic>.from).toList()
       : [];
 
   static Uri? reference(MusicMetadata song) {
@@ -103,12 +99,7 @@ class MornyeExtensionService {
 
   Future<List<MusicMetadata>> search(String provider, String query) async {
     final rows = _maps(await call('search', {'id': provider, 'query': query}));
-    final results = parseTracks(provider, rows);
-    _tracks.clear();
-    for (final row in rows) {
-      _tracks['$provider/${row['id']}'] = row;
-    }
-    return results;
+    return parseTracks(provider, rows);
   }
 
   static List<MusicMetadata> parseTracks(String provider, Object? value) {
@@ -164,7 +155,6 @@ class MornyeExtensionService {
       'id': provider,
       'trackId': id,
       'quality': qualities.isEmpty ? 'high' : qualities.first['id'],
-      'track': _tracks['$provider/$id'] ?? {},
     });
     final file = Uri.tryParse(url?.toString() ?? '');
     if (file?.scheme != 'file') {

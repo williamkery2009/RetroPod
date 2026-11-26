@@ -1,15 +1,14 @@
 import 'dart:convert';
 
-import 'package:retropod/core/services/mornye_extension_service.dart';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:retropod/core/models/music_metadata.dart';
 import 'package:retropod/core/services/audius_service.dart';
-import 'package:retropod/core/services/soundcloud_service.dart';
 import 'package:retropod/core/services/jiosaavn_service.dart';
-import 'package:retropod/core/services/youtube_music_service.dart';
+import 'package:retropod/core/services/mornye_extension_service.dart';
 import 'package:retropod/core/services/piped_service.dart';
+import 'package:retropod/core/services/soundcloud_service.dart';
+import 'package:retropod/core/services/youtube_music_service.dart';
 
 enum MusicSource {
   itunes('iTunes previews'),
@@ -152,10 +151,12 @@ class OnlineMusicService {
 
   static List<MusicMetadata> parseResults(MusicSource source, Object? data) {
     if (source == MusicSource.audius) return AudiusService.parseResults(data);
-    if (source == MusicSource.soundcloud)
+    if (source == MusicSource.soundcloud) {
       return SoundCloudService.parseResults(data);
-    if (source == MusicSource.jiosaavn)
+    }
+    if (source == MusicSource.jiosaavn) {
       return JioSaavnService.parseResults(data);
+    }
     if (source == MusicSource.youtubeMusic ||
         source == MusicSource.youtubePiped) {
       final songs = YoutubeMusicService.parseResults(data);

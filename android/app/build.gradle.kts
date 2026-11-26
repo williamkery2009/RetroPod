@@ -56,6 +56,7 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
         getByName("release") {
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // Fallback to debug signing if the release keystore isn't configured
             val storeFilePath = keystoreProperties["storeFile"] as? String
             signingConfig = if (storeFilePath != null) {
