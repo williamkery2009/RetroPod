@@ -6,12 +6,15 @@ allprojects {
     repositories {
         google()
         mavenCentral()
-        // NewPipeExtractor is published on JitPack only. The content filter
-        // keeps JitPack from being used to resolve any other dependency.
+        // NewPipeExtractor and its forked nanojson are published on JitPack
+        // only. The regex keeps JitPack from being used to resolve anything
+        // else. Case matters: the extractor resolves as
+        // com.github.teamnewpipe, while the nanojson fork resolves as
+        // com.github.TeamNewPipe.
         maven {
             url = uri("https://jitpack.io")
             content {
-                includeGroup("com.github.teamnewpipe")
+                includeGroupByRegex("com\\.github\\.[Tt]eam[Nn]ew[Pp]ipe")
             }
         }
     }
