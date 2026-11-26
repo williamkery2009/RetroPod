@@ -16,7 +16,8 @@ void main() {
       final calls = <String>[];
       final transport = MockClient((request) async {
         calls.add('${request.method} ${request.url.path}');
-        if (request.method == 'HEAD') return http.Response('', 200);
+        if (request.method == 'HEAD')
+          return http.Response('', 200, request: request);
         expect(request.method, 'POST');
         expect(request.url.path, '/youtubei/v1/player');
         final body = jsonDecode(request.body) as Map;
@@ -46,6 +47,7 @@ void main() {
           }),
           200,
           headers: {'content-type': 'application/json'},
+          request: request,
         );
       });
       final extractorHttp = YoutubeHttpClient(transport);
@@ -81,6 +83,7 @@ void main() {
         }),
         200,
         headers: {'content-type': 'application/json'},
+        request: request,
       ),
     );
     final extractorHttp = YoutubeHttpClient(transport);
