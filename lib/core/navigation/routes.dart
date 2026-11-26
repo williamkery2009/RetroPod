@@ -678,7 +678,7 @@ final routerProvider = Provider(
                   GoRoute(
                     path: Routes.solitaire.name,
                     name: Routes.solitaire.name,
-                    parentNavigatorKey: menuNavigatorKey,
+                    parentNavigatorKey: rootNavigatorKey,
                     pageBuilder: (context, state) =>
                         const CupertinoPage(child: SolitaireScreen()),
                   ),
