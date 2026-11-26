@@ -2,11 +2,12 @@
 
 Status: Kotlin module implemented, not yet wired to a Flutter screen.
 Verification: the code was written against the pinned APIs (NewPipeExtractor
-`v0.27.1` source, Media3 `1.4.1` which is the version `just_audio` already
-resolves) and reviewed by hand. It has not been compiled or run in this
-environment, because the sandbox has no JDK, no Flutter SDK and no network
-access to JitPack/Google Maven. Run `flutter build apk --debug` and the device
-checklist at the end before treating it as done.
+`v0.27.1` source and Media3 `1.4.1`, the version `just_audio` already resolves),
+every Kotlin file and both Gradle scripts parse cleanly with the tree-sitter
+Kotlin grammar, and the manifest is well-formed XML. It has not been compiled
+or run, because this environment has no JDK, no Android SDK, no Flutter SDK and
+no network access to JitPack/Google Maven. Run `flutter build apk --debug` and
+the device checklist at the end before treating it as done.
 
 ## 0. Read this before shipping
 
@@ -83,10 +84,13 @@ implementation("androidx.media3:media3-session:$media3Version")
 implementation("com.github.teamnewpipe:NewPipeExtractor:v0.27.1")
 implementation("com.squareup.okhttp3:okhttp:4.12.0")
 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
-implementation("androidx.concurrent:concurrent-futures:1.2.0")
-implementation("com.google.guava:listenablefuture:1.0")
 coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 ```
+
+No explicit Guava dependency is needed: Media3 exposes Guava's
+`ListenableFuture`/`SettableFuture` as part of `media3-common`'s public API, so
+`YtPlaybackService` can hand session callbacks a future without adding another
+library.
 
 `isCoreLibraryDesugaringEnabled = true` is required: the extractor uses
 `java.time` and `List.of`, which do not exist on the older Android versions

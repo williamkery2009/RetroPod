@@ -123,16 +123,9 @@ internal class NewPipeYtMusicProvider : YtMusicProvider {
         if (videoId.isBlank()) {
             return null
         }
-        val artist = try {
-            uploaderName.orEmpty()
-        } catch (exception: ParsingException) {
-            ""
-        }
-        val durationSeconds = try {
-            duration
-        } catch (exception: ParsingException) {
-            0L
-        }
+        // The collector already resolved both fields while building the item.
+        val artist = uploaderName.orEmpty()
+        val durationSeconds = duration
         return YtTrack(
             videoId = videoId,
             title = name.orEmpty().ifBlank { videoId },

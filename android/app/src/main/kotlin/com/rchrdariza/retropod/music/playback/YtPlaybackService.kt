@@ -2,7 +2,6 @@ package com.rchrdariza.retropod.music.playback
 
 import android.app.PendingIntent
 import android.content.Intent
-import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -43,7 +42,7 @@ import kotlinx.coroutines.launch
  * placeholders and the service decides when (and with which format) the real
  * URL is fetched.
  */
-@OptIn(UnstableApi::class)
+@androidx.annotation.OptIn(UnstableApi::class)
 class YtPlaybackService : MediaSessionService() {
 
     private lateinit var player: ExoPlayer
@@ -144,6 +143,13 @@ class YtPlaybackService : MediaSessionService() {
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             if (mediaItem?.mediaId != lastRetriedMediaId) {
+                lastRetriedMediaId = null
+            }
+        }
+
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            // Playback recovered (or moved on); allow a fresh retry later.
+            if (playbackState == Player.STATE_READY) {
                 lastRetriedMediaId = null
             }
         }

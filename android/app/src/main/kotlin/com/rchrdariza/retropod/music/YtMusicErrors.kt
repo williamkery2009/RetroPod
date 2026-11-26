@@ -85,13 +85,12 @@ fun Throwable.toYtMusicException(): YtMusicException {
             this,
         )
 
-        is YoutubeMusicPremiumContentException,
-        is PaidContentException,
-        -> YtMusicException(
-            YtErrorCode.PAID,
-            "The track requires a YouTube Music Premium subscription.",
-            this,
-        )
+        is YoutubeMusicPremiumContentException, is PaidContentException ->
+            YtMusicException(
+                YtErrorCode.PAID,
+                "The track requires a YouTube Music Premium subscription.",
+                this,
+            )
 
         is PrivateContentException -> YtMusicException(
             YtErrorCode.PRIVATE,

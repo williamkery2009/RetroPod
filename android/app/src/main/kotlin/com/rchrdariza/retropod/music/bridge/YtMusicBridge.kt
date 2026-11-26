@@ -4,7 +4,6 @@ import android.content.ComponentName
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
-import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
@@ -44,7 +43,7 @@ import kotlinx.coroutines.launch
  * [MediaController] bound to that service, so commands work with the same
  * semantics the system uses for lock screen and Bluetooth controls.
  */
-@OptIn(UnstableApi::class)
+@androidx.annotation.OptIn(UnstableApi::class)
 class YtMusicBridge private constructor(
     private val context: Context,
     private val provider: YtMusicProvider,
