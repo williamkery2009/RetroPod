@@ -45,7 +45,10 @@ class _SolitaireScreenState extends ConsumerState<SolitaireScreen> {
   @override
   void initState() {
     super.initState();
-    ref.listenManual(deviceButtonsServiceProvider, _onDeviceAction);
+    ref.listenManual<DeviceAction?>(
+      deviceButtonsServiceProvider,
+      _onDeviceAction,
+    );
   }
 
   void _onDeviceAction(DeviceAction? previous, DeviceAction? action) {
