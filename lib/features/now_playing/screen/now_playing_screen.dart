@@ -12,9 +12,11 @@ import 'package:retropod/core/widgets/empty_state_widget.dart';
 import 'package:retropod/features/device/models/device_action.dart';
 import 'package:retropod/features/device/services/device_buttons_service_provider.dart';
 import 'package:retropod/features/now_playing/provider/now_playing_details_provider.dart';
+import 'package:retropod/features/now_playing/screen/full_screen_lyrics_screen.dart';
+import 'package:retropod/features/now_playing/widgets/fluid_art_background.dart';
 import 'package:retropod/features/now_playing/widgets/lyrics_view.dart';
-import 'package:retropod/features/now_playing/widgets/now_playing_bottom_bar.dart';
 import 'package:retropod/features/now_playing/widgets/now_playing_widget.dart';
+import 'package:retropod/features/now_playing/widgets/playback_progress_bar.dart';
 import 'package:retropod/features/now_playing/widgets/rating_bar.dart';
 import 'package:retropod/features/now_playing/widgets/shuffle_segmented_control.dart';
 import 'package:retropod/features/now_playing/widgets/volume_bar.dart';
@@ -118,7 +120,23 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
     }
   }
 
+  void openFullScreenLyrics() {
+    unawaited(
+      Navigator.of(context, rootNavigator: true).push(
+        CupertinoPageRoute<void>(
+          fullscreenDialog: true,
+          builder: (_) => const FullScreenLyricsScreen(),
+        ),
+      ),
+    );
+  }
+
   void onSelectLongPress() {
+    // Holding the center button over the lyrics expands them.
+    if (_bottomBarPage == _NowPlayingBottomBarPage.lyrics) {
+      openFullScreenLyrics();
+      return;
+    }
     unawaited(context.pushNamed(Routes.nowPlayingMoreOptions.name));
   }
 
@@ -354,10 +372,16 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
       );
     }
 
-    return CupertinoPageScaffold(
-      child: Column(
+    final String? thumbnailPath =
+        nowPlayingDetails.currentMetadata?.thumbnailPath;
+    final bool showsLyrics =
+        _bottomBarPage == _NowPlayingBottomBarPage.lyrics && hasLyrics;
+    // Lyrics are always white, so they need the dark backdrop even when the
+    // song has no artwork.
+    final bool isImmersive = thumbnailPath != null || showsLyrics;
+
+    final Widget playerBody = Column(
         children: [
-          StatusBar(title: Routes.nowPlaying.title(context)),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
@@ -394,15 +418,32 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
                 padding: const EdgeInsets.only(left: 10),
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 300),
-                  child:
-                      (_bottomBarPage == _NowPlayingBottomBarPage.lyrics &&
-                          hasLyrics)
-                      ? LyricsView(
+                  child: showsLyrics
+                      ? Stack(
                           key: ValueKey(
                             'lyrics-view-${nowPlayingDetails.currentMetadata?.originalSongIndex ?? 0}',
                           ),
-                          lyrics: lyrics,
-                          scrollController: _lyricsScrollController,
+                          fit: StackFit.expand,
+                          children: [
+                            LyricsView(
+                              lyrics: lyrics,
+                              scrollController: _lyricsScrollController,
+                            ),
+                            Positioned(
+                              top: 0,
+                              right: 4,
+                              child: CupertinoButton(
+                                padding: const EdgeInsets.all(6),
+                                minimumSize: Size.zero,
+                                onPressed: openFullScreenLyrics,
+                                child: const Icon(
+                                  CupertinoIcons.fullscreen,
+                                  size: 20,
+                                  color: CupertinoColors.white,
+                                ),
+                              ),
+                            ),
+                          ],
                         )
                       : NowPlayingWidget(
                           key: const ValueKey('now-playing-view'),
@@ -413,7 +454,7 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
             ),
           ),
           SizedBox(
-            height: 30,
+            height: 40,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10),
               child: AnimatedSwitcher(
@@ -444,8 +485,8 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
                         controller: _bottomBarPageController,
                         physics: const NeverScrollableScrollPhysics(),
                         children: [
-                          const NowPlayingBottomBar(),
-                          const NowPlayingBottomBar(showScrubber: true),
+                          const PlaybackProgressBar(),
+                          const PlaybackProgressBar(showHandle: true),
                           ShuffleSegmentedControl(
                             isShuffleEnabled: _isShuffleEnabled,
                             onValueChanged: (value) {
@@ -469,8 +510,55 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
         ],
+    );
+
+    return CupertinoPageScaffold(
+      child: Column(
+        children: [
+          StatusBar(title: Routes.nowPlaying.title(context)),
+          Expanded(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (isImmersive)
+                  FluidArtBackground(
+                    thumbnailPath: thumbnailPath,
+                    isOnDevice:
+                        nowPlayingDetails.currentMetadata?.isOnDevice ?? true,
+                  ),
+                _ImmersiveTheme(isEnabled: isImmersive, child: playerBody),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Switches [child] to light-on-dark colors over the artwork background.
+class _ImmersiveTheme extends StatelessWidget {
+  final bool isEnabled;
+  final Widget child;
+
+  const _ImmersiveTheme({required this.isEnabled, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final CupertinoThemeData theme = CupertinoTheme.of(context);
+
+    // The same widgets are used either way, so toggling keeps child state.
+    return CupertinoTheme(
+      data: isEnabled ? theme.copyWith(brightness: Brightness.dark) : theme,
+      child: Builder(
+        builder: (context) => DefaultTextStyle(
+          style: CupertinoTheme.of(context).textTheme.textStyle.copyWith(
+            color: isEnabled ? CupertinoColors.white : null,
+          ),
+          child: child,
+        ),
       ),
     );
   }

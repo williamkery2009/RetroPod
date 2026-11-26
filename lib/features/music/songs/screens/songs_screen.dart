@@ -30,6 +30,9 @@ class _SongsScreenState extends ConsumerState<SongsScreen> with CustomScreen {
   List<MusicMetadata> get displayItems => ref.read(songsProvider);
 
   @override
+  String? indexTitleFor(int index) => displayItems[index].getTrackName;
+
+  @override
   Future<void> onSelectPressed() => _playSong(selectedDisplayItem);
 
   @override
