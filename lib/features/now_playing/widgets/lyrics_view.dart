@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/rendering.dart';
@@ -287,10 +286,10 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     final TextAlign textAlign = isRight ? TextAlign.right : TextAlign.left;
     final int focusIndex = _activeLineIndex < 0 ? 0 : _activeLineIndex;
     final int distance = (index - focusIndex).abs();
-    // Only nearby lines are blurred, which limits the number of blur layers.
-    final double blur = isActive || _isBrowsing || distance > 4
+    // Blur grows with distance and then stays at its maximum.
+    final double blur = isActive || _isBrowsing
         ? 0
-        : math.min(distance * 0.8, 3.0);
+        : math.min(distance * 0.7, 2.5);
 
     final TextStyle style = TextStyle(
       fontSize: widget.fontSize,
@@ -299,24 +298,27 @@ class _LyricsViewState extends ConsumerState<LyricsView>
       color: CupertinoColors.white,
     );
 
-    final Widget leadText = isActive && line.words.isNotEmpty
-        ? KaraokeLine(
-            words: line.words,
-            position: _position,
-            style: style,
-            textAlign: textAlign,
-          )
-        : Text(line.text, style: style, textAlign: textAlign);
+    Widget buildText(TextStyle lineStyle) {
+      final Widget leadText = isActive && line.words.isNotEmpty
+          ? KaraokeLine(
+              words: line.words,
+              position: _position,
+              style: style,
+              textAlign: textAlign,
+            )
+          : Text(line.text, style: lineStyle, textAlign: textAlign);
 
-    final Widget text = line.backgroundWords.isEmpty
-        ? leadText
-        : Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              leadText,
-              _buildBackgroundVocals(line, isActive, style, textAlign),
-            ],
-          );
+      if (line.backgroundWords.isEmpty) {
+        return leadText;
+      }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          leadText,
+          _buildBackgroundVocals(line, isActive, lineStyle, textAlign),
+        ],
+      );
+    }
 
     return GestureDetector(
       key: _lineKeys[index],
@@ -336,16 +338,32 @@ class _LyricsViewState extends ConsumerState<LyricsView>
             child: TweenAnimationBuilder<double>(
               tween: Tween(end: blur),
               duration: const Duration(milliseconds: 400),
-              child: SizedBox(width: double.infinity, child: text),
-              builder: (context, sigma, child) => ImageFiltered(
-                enabled: sigma > 0.05,
-                imageFilter: ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
-                child: child,
+              builder: (context, sigma, _) => SizedBox(
+                width: double.infinity,
+                child: buildText(_softened(style, sigma)),
               ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  /// Blurs text by drawing only its shadow. This is cheap enough to apply to
+  /// every inactive line, unlike a separate blur layer for each one.
+  TextStyle _softened(TextStyle style, double sigma) {
+    if (sigma < 0.6) {
+      return style;
+    }
+    return style.copyWith(
+      color: const Color(0x00FFFFFF),
+      shadows: [
+        Shadow(
+          color: CupertinoColors.white,
+          // Inverse of Shadow's radius to sigma conversion.
+          blurRadius: (sigma - 0.5) / 0.57735,
+        ),
+      ],
     );
   }
 
@@ -355,7 +373,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     TextStyle leadStyle,
     TextAlign textAlign,
   ) {
-    final TextStyle style = leadStyle.copyWith(
+    final TextStyle textStyle = leadStyle.copyWith(
       fontSize: widget.fontSize * 0.7,
     );
 
@@ -365,12 +383,13 @@ class _LyricsViewState extends ConsumerState<LyricsView>
           ? KaraokeLine(
               words: line.backgroundWords,
               position: _position,
-              style: style,
+              // The active line is never blurred.
+              style: textStyle.copyWith(color: CupertinoColors.white),
               textAlign: textAlign,
             )
           : Text(
               line.backgroundWords.map((word) => word.text).join().trim(),
-              style: style,
+              style: textStyle,
               textAlign: textAlign,
             ),
     );
