@@ -266,7 +266,8 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     final TextAlign textAlign = isRight ? TextAlign.right : TextAlign.left;
     final int focusIndex = _activeLineIndex < 0 ? 0 : _activeLineIndex;
     final int distance = (index - focusIndex).abs();
-    final double blur = isActive || _isBrowsing
+    // Only nearby lines are blurred, which limits the number of blur layers.
+    final double blur = isActive || _isBrowsing || distance > 4
         ? 0
         : math.min(distance * 0.8, 3.0);
 
