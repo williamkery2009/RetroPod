@@ -8,6 +8,8 @@ import 'package:retropod/core/navigation/routes.dart';
 import 'package:retropod/core/services/audio_player_service.dart';
 import 'package:retropod/core/services/online_music_service.dart';
 import 'package:retropod/core/services/piped_service.dart';
+import 'package:retropod/core/services/soundcloud_service.dart';
+import 'package:retropod/core/services/jiosaavn_service.dart';
 import 'package:retropod/core/services/youtube_music_service.dart';
 import 'package:retropod/core/services/youtube_playback_error.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -70,7 +72,9 @@ class _OnlineMusicScreenState extends ConsumerState<OnlineMusicScreen>
         if (!mounted || request != _request) return;
         setState(() {
           _loading = false;
-          _message = 'Source unavailable. Tap here to retry.';
+          _message = source == MusicSource.jiosaavn
+              ? 'JioSaavn unavailable. Try changing JioSaavn server.'
+              : 'Source unavailable. Tap here to retry.';
         });
       }
     });
@@ -135,7 +139,11 @@ class _OnlineMusicScreenState extends ConsumerState<OnlineMusicScreen>
         builder: (context) => CupertinoAlertDialog(
           title: const Text('Unable to play'),
           content: Text(
-            YoutubeMusicService.videoIdFor(song) != null
+            error is SoundCloudException
+                ? error.message
+                : error is JioSaavnException
+                ? error.message
+                : YoutubeMusicService.videoIdFor(song) != null
                 ? youtubePlaybackErrorMessage(error)
                 : 'This stream is unavailable. Try another result.',
           ),
@@ -159,8 +167,10 @@ class _OnlineMusicScreenState extends ConsumerState<OnlineMusicScreen>
         ),
       );
 
-  Future<void> _editPipedServer() async {
-    final current = await PipedService.configuredInstance();
+  Future<void> _editProviderServer({bool jiosaavn = false}) async {
+    final current = jiosaavn
+        ? await JioSaavnService.configuredInstance()
+        : await PipedService.configuredInstance();
     if (!mounted) return;
     final controller = TextEditingController(text: current.toString());
     String? validation;
@@ -169,12 +179,15 @@ class _OnlineMusicScreenState extends ConsumerState<OnlineMusicScreen>
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, update) => CupertinoAlertDialog(
-          title: const Text('Piped API server'),
+          title: Text(jiosaavn ? 'JioSaavn API server' : 'Piped API server'),
           content: Column(
             children: [
-              const Text(
-                'This server receives the video IDs you play. '
-                'Use an HTTPS Piped API instance. Public servers may be unavailable.',
+              Text(
+                jiosaavn
+                    ? 'Use a compatible JioSaavn API base URL, including /api if required. '
+                          'This server receives your searches and track IDs. Public servers may be unavailable.'
+                    : 'This server receives the video IDs you play. '
+                          'Use an HTTPS Piped API instance. Public servers may be unavailable.',
               ),
               CupertinoTextField(
                 controller: controller,
@@ -198,7 +211,11 @@ class _OnlineMusicScreenState extends ConsumerState<OnlineMusicScreen>
                   : () async {
                       update(() => saving = true);
                       try {
-                        await PipedService.saveInstance(controller.text);
+                        if (jiosaavn) {
+                          await JioSaavnService.saveInstance(controller.text);
+                        } else {
+                          await PipedService.saveInstance(controller.text);
+                        }
                         if (dialogContext.mounted)
                           Navigator.of(dialogContext).pop();
                       } catch (_) {
@@ -256,6 +273,10 @@ class _OnlineMusicScreenState extends ConsumerState<OnlineMusicScreen>
                         ? 'YouTube Music'
                         : _source == MusicSource.audius
                         ? 'Audius · uploader'
+                        : _source == MusicSource.soundcloud
+                        ? 'SoundCloud · uploader'
+                        : _source == MusicSource.jiosaavn
+                        ? 'JioSaavn'
                         : 'Preview only'}';
               return GestureDetector(
                 behavior: HitTestBehavior.opaque,
@@ -296,8 +317,19 @@ class _OnlineMusicScreenState extends ConsumerState<OnlineMusicScreen>
             _source == MusicSource.youtubePiped)
           CupertinoButton(
             padding: EdgeInsets.zero,
-            onPressed: _playing ? null : _editPipedServer,
+            onPressed: _playing ? null : () => _editProviderServer(),
             child: const Text('Piped server', style: TextStyle(fontSize: 12)),
+          ),
+        if (_source == MusicSource.jiosaavn)
+          CupertinoButton(
+            padding: EdgeInsets.zero,
+            onPressed: _playing
+                ? null
+                : () => _editProviderServer(jiosaavn: true),
+            child: const Text(
+              'JioSaavn server',
+              style: TextStyle(fontSize: 12),
+            ),
           ),
         if (_loading || _playing) const CupertinoActivityIndicator(),
         GestureDetector(

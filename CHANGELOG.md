@@ -1,3 +1,5 @@
+Add public SoundCloud search and fresh progressive/HLS playback, plus an experimental configurable JioSaavn API adapter.
+
 Add Audius public-track search and streaming, excluding restricted tracks and preserving remix titles and uploader attribution.
 
 Add selectable Piped audio resolution, an editable HTTPS API server, and one Piped fallback after YouTube extraction failure.

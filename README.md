@@ -282,3 +282,31 @@ A live check returned search results and 1,024 MP3 bytes (HTTP 206) for
 “Blinding Lights - Zaza Remix”; this is a connectivity check, not a complete
 device playback test or confirmation of the original recording's availability.
 No new account credentials or dependencies are required for this public source.
+
+### SoundCloud and JioSaavn
+
+**SoundCloud** searches public tracks and resolves fresh streams on selection.
+It discovers the public web client identifier from SoundCloud's own assets,
+without account cookies. Preview-only, private and blocked tracks are excluded.
+Original titles and uploader names remain visible. HLS streams use an explicit
+HLS audio source, and only stable track identifiers are retained in the queue.
+A live check retrieved search results, a 77-segment HLS playlist and 1,024 bytes
+of an audio segment (HTTP 206, audio/mp4). Device playback remains to be tested.
+
+**JioSaavn (experimental)** supports the open-source
+[sumitkolhe/jiosaavn-api](https://github.com/sumitkolhe/jiosaavn-api) schema.
+Tap **JioSaavn server** to change the HTTPS API base URL (usually including
+`/api`). Your configured server receives queries and track IDs; no credentials
+are sent. Track details are refreshed before playback and only HTTPS Saavn CDN
+audio URLs are accepted. The best bitrate returned by the server is selected;
+AAC/MP3 quality is not lossless.
+
+The initial JioSaavn server is `https://saavn.dev/api`. Recent probes returned
+503 from that host, 429 from saavn.sumit.co, and 403 from the direct JioSaavn
+API. No working JioSaavn stream was verified here. This adapter needs a working
+compatible server; adding the source does not remove that requirement.
+
+The SoundCloud request/response behaviour was reviewed against Mornye's
+[source-backed provider](https://github.com/mornyeapp/Mornye-Extension/tree/main/sources/soundcloud).
+RetroPod's adapter is independently implemented in Dart; Mornye extension code
+is not bundled or executed.

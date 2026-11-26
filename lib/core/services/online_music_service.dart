@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:retropod/core/models/music_metadata.dart';
 import 'package:retropod/core/services/audius_service.dart';
+import 'package:retropod/core/services/soundcloud_service.dart';
+import 'package:retropod/core/services/jiosaavn_service.dart';
 import 'package:retropod/core/services/youtube_music_service.dart';
 import 'package:retropod/core/services/piped_service.dart';
 
@@ -12,6 +14,8 @@ enum MusicSource {
   deezer('Deezer previews'),
   radio('Internet radio'),
   audius('Audius'),
+  soundcloud('SoundCloud'),
+  jiosaavn('JioSaavn (experimental)'),
   youtubeMusic('YouTube Music (experimental)'),
   youtubePiped('YouTube Music via Piped');
 
@@ -35,9 +39,14 @@ class OnlineMusicService {
   final http.Client _client;
   final YoutubeMusicService _youtube;
 
+  late final SoundCloudService _soundcloud = SoundCloudService(_client);
+  late final JioSaavnService _jiosaavn = JioSaavnService(_client);
+
   late final PipedService _piped = PipedService(_client);
 
   Future<MusicMetadata> resolveForPlayback(MusicMetadata song) async {
+    if (SoundCloudService.idFor(song) != null) return _soundcloud.resolve(song);
+    if (JioSaavnService.idFor(song) != null) return _jiosaavn.resolve(song);
     final id = YoutubeMusicService.videoIdFor(song);
     if (id == null) return song;
     final pipedOnly =
@@ -81,6 +90,8 @@ class OnlineMusicService {
   Future<List<MusicMetadata>> search(MusicSource source, String query) async {
     final term = query.trim();
     if (term.isEmpty) return [];
+    if (source == MusicSource.soundcloud) return _soundcloud.search(term);
+    if (source == MusicSource.jiosaavn) return _jiosaavn.search(term);
     if (source == MusicSource.youtubeMusic ||
         source == MusicSource.youtubePiped) {
       final songs = await _youtube.search(term);
@@ -88,7 +99,9 @@ class OnlineMusicService {
     }
     final Uri uri = switch (source) {
       MusicSource.youtubeMusic ||
-      MusicSource.youtubePiped => throw StateError('Handled above'),
+      MusicSource.youtubePiped ||
+      MusicSource.soundcloud ||
+      MusicSource.jiosaavn => throw StateError('Handled above'),
       MusicSource.audius => Uri.https('api.audius.co', '/v1/tracks/search', {
         'query': term,
         'limit': '40',
@@ -134,6 +147,10 @@ class OnlineMusicService {
 
   static List<MusicMetadata> parseResults(MusicSource source, Object? data) {
     if (source == MusicSource.audius) return AudiusService.parseResults(data);
+    if (source == MusicSource.soundcloud)
+      return SoundCloudService.parseResults(data);
+    if (source == MusicSource.jiosaavn)
+      return JioSaavnService.parseResults(data);
     if (source == MusicSource.youtubeMusic ||
         source == MusicSource.youtubePiped) {
       final songs = YoutubeMusicService.parseResults(data);
@@ -154,7 +171,9 @@ class OnlineMusicService {
       final url = _https(switch (source) {
         MusicSource.youtubeMusic ||
         MusicSource.youtubePiped ||
-        MusicSource.audius => null,
+        MusicSource.audius ||
+        MusicSource.soundcloud ||
+        MusicSource.jiosaavn => null,
         MusicSource.itunes => row['previewUrl'],
         MusicSource.deezer => row['preview'],
         MusicSource.radio => row['url_resolved'],
@@ -177,7 +196,9 @@ class OnlineMusicService {
             switch (source) {
               MusicSource.youtubeMusic ||
               MusicSource.youtubePiped ||
-              MusicSource.audius => 'Unknown Artist',
+              MusicSource.audius ||
+              MusicSource.soundcloud ||
+              MusicSource.jiosaavn => 'Unknown Artist',
               MusicSource.itunes =>
                 _text(row['artistName']) ?? 'Unknown Artist',
               MusicSource.deezer =>
@@ -192,7 +213,9 @@ class OnlineMusicService {
           thumbnailPath: _https(switch (source) {
             MusicSource.youtubeMusic ||
             MusicSource.youtubePiped ||
-            MusicSource.audius => null,
+            MusicSource.audius ||
+            MusicSource.soundcloud ||
+            MusicSource.jiosaavn => null,
             MusicSource.itunes => row['artworkUrl100'],
             MusicSource.deezer => album is Map ? album['cover_medium'] : null,
             MusicSource.radio => row['favicon'],
