@@ -27,7 +27,12 @@ Previews are excerpts, not full recordings; radio plays live HTTPS streams.
 YouTube Music uses unauthenticated Innertube song search and youtube_explode_dart
 to resolve audio at playback time. It needs no Data API key, but extraction can
 fail when YouTube changes its service or restricts a connection. An Open YouTube
-Music action is available when playback fails. Signed audio URLs are not saved as
+Music action is available when playback fails. Errors distinguish sign-in
+requirements, HTTP 403, rate limits, and timeouts without exposing stream URLs.
+The extraction client temporarily follows the compatibility profile proposed in
+[youtube_explode_dart PR #389](https://github.com/Hexer10/youtube_explode_dart/pull/389);
+this is not a guarantee of anonymous playback on every connection. RetroPod has
+no YouTube account sign-in flow. Signed audio URLs are not saved as
 library identifiers. Long-lived queues may need to be reselected if URLs expire.
 Availability depends on your region, the provider, and browser CORS support.
 

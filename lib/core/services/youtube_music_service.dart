@@ -9,8 +9,14 @@ typedef YoutubeAudioResolver = Future<Uri> Function(String videoId);
 /// Public, unauthenticated YouTube Music search. This is an unofficial API.
 /// Search results retain watch URLs; expiring audio URLs are resolved on play.
 class YoutubeMusicService {
-  YoutubeMusicService(this._client, {YoutubeAudioResolver? resolveAudio})
-    : _resolveAudio = resolveAudio ?? _resolvePublicAudio;
+  YoutubeMusicService(
+    this._client, {
+    YoutubeAudioResolver? resolveAudio,
+    YoutubeExplode Function()? createExtractor,
+  }) : _resolveAudio =
+           resolveAudio ??
+           ((id) =>
+               _resolvePublicAudio(id, createExtractor ?? YoutubeExplode.new));
 
   final http.Client _client;
   final YoutubeAudioResolver _resolveAudio;
@@ -194,11 +200,42 @@ class YoutubeMusicService {
     return song.copyWith(filePath: url.toString());
   }
 
-  static Future<Uri> _resolvePublicAudio(String videoId) async {
-    final youtube = YoutubeExplode();
+  // Compatibility profile proposed upstream in youtube_explode_dart PR #389.
+  // The 3.1.0 default Android client currently returns 403 for audio streams.
+  // Keep this local until the dependency ships the upstream fix.
+  static const _musicClient = YoutubeApiClient({
+    'context': {
+      'client': {
+        'clientName': 'VISIONOS',
+        'clientVersion': '1.02',
+        'deviceMake': 'Apple',
+        'deviceModel': 'RealityDevice17,1',
+        'osName': 'visionOS',
+        'osVersion': '26.5.23O471',
+        'userAgent':
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) '
+            'AppleWebKit/605.1.15 (KHTML, like Gecko) '
+            'Version/26.0 Safari/605.1.15',
+        'hl': 'en',
+        'timeZone': 'UTC',
+        'utcOffsetMinutes': 0,
+      },
+    },
+  }, 'https://www.youtube.com/youtubei/v1/player?prettyPrint=false');
+
+  static Future<Uri> _resolvePublicAudio(
+    String videoId,
+    YoutubeExplode Function() createExtractor,
+  ) async {
+    final youtube = createExtractor();
     try {
       final manifest = await youtube.videos.streams
-          .getManifest(videoId)
+          .getManifest(
+            videoId,
+            ytClients: [_musicClient],
+            // This profile provides direct URLs without a watch-page JS solver.
+            requireWatchPage: false,
+          )
           .timeout(const Duration(seconds: 20));
       final streams = manifest.audioOnly.toList();
       // AAC/MP4 is the most broadly supported format across our players.

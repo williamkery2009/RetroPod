@@ -8,6 +8,7 @@ import 'package:retropod/core/navigation/routes.dart';
 import 'package:retropod/core/services/audio_player_service.dart';
 import 'package:retropod/core/services/online_music_service.dart';
 import 'package:retropod/core/services/youtube_music_service.dart';
+import 'package:retropod/core/services/youtube_playback_error.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:retropod/core/widgets/input_text_bar.dart';
 import 'package:retropod/features/custom_screen_elements/custom_input_text_screen.dart';
@@ -116,24 +117,26 @@ class _OnlineMusicScreenState extends ConsumerState<OnlineMusicScreen>
       // play() completes when playback ends, not when it starts.
       unawaited(
         player.play().catchError((Object error) {
-          if (mounted) unawaited(_showPlaybackError(song));
+          if (mounted) unawaited(_showPlaybackError(song, error));
         }),
       );
       if (mounted) await context.pushNamed(Routes.nowPlaying.name);
-    } catch (_) {
-      if (mounted) await _showPlaybackError(song);
+    } catch (error) {
+      if (mounted) await _showPlaybackError(song, error);
     } finally {
       if (mounted) setState(() => _playing = false);
     }
   }
 
-  Future<void> _showPlaybackError(MusicMetadata song) =>
+  Future<void> _showPlaybackError(MusicMetadata song, Object error) =>
       showCupertinoDialog<void>(
         context: context,
         builder: (context) => CupertinoAlertDialog(
           title: const Text('Unable to play'),
-          content: const Text(
-            'This stream is unavailable. Try another result.',
+          content: Text(
+            YoutubeMusicService.videoIdFor(song) != null
+                ? youtubePlaybackErrorMessage(error)
+                : 'This stream is unavailable. Try another result.',
           ),
           actions: [
             if (YoutubeMusicService.videoIdFor(song) != null)
