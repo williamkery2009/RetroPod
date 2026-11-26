@@ -1,0 +1,96 @@
+name: Build Test APK
+
+on:
+  pull_request:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  FLUTTER_VERSION: 3.44.9
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+
+      - name: Configure repo
+        run: |
+          flutter pub get
+          flutter gen-l10n
+
+      # Without key.properties this is signed with a temporary debug key.
+      - name: Build dev APK
+        run: |
+          set -o pipefail
+          mkdir -p build-logs
+          flutter build apk --release --flavor dev --target=lib/main.dart \
+            2>&1 | tee build-logs/build.log
+
+      # Turns a red build into something readable from the pull request, so a
+      # failing Gradle or Kotlin compile can be diagnosed without opening the
+      # Actions log.
+      - name: Report failure on the pull request
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo '### APK build failed'
+            echo
+            echo '```'
+            pattern='e: |error:|FAILURE:|What went wrong|Caused by'
+            pattern="$pattern|Could not resolve|Unresolved reference"
+            pattern="$pattern|Execution failed"
+            grep -n -i -E "$pattern" build-logs/build.log \
+              | tail -n 60 || true
+            echo '```'
+            echo
+            echo '<details><summary>Last 150 log lines</summary>'
+            echo
+            echo '```'
+            tail -n 150 build-logs/build.log || true
+            echo '```'
+            echo '</details>'
+          } > /tmp/comment.md
+          gh pr comment ${{ github.event.pull_request.number }} \
+            --body-file /tmp/comment.md
+
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: retropod-dev-apk
+          path: build/app/outputs/flutter-apk/app-dev-release.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      # Artifact downloads need a GitHub login. A rolling pre-release gives a
+      # link that can be opened directly on a phone.
+      - name: Publish dev APK pre-release
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=dev-apk
+          apk=build/app/outputs/flutter-apk/app-dev-release.apk
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "$apk" --clobber
+          else
+            gh release create "$tag" "$apk" \
+              --title "RetroPod dev APK" \
+              --prerelease \
+              --notes "Debug-key build. Allow unknown sources."
+          fi

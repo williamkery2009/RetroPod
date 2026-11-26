@@ -3,6 +3,7 @@
 ## Project Structure & Module Organization
 - `lib/` holds app code: `core/` for shared services, `features/` for UI flows, `hive/` for adapters, and entry points in `main.dart`, `main_development.dart`, and `retropod_app.dart`.
 - Platform scaffolding lives in `android/`, `ios/`, `linux/`, `macos/`, `windows/`, and `web/`; assets and fonts sit in `assets/`; automation scripts live in `fastlane/` and `scripts/`.
+- `android/app/src/main/kotlin/com/rchrdariza/retropod/music/` holds the optional native streaming module (Innertube extraction, Media3 playback session, visualizer, Flutter bridge). Read `docs/youtube-music-integration.md` before changing it. It links NewPipeExtractor, which is GPL-3.0, so it must not be combined into an MIT-only build without the licensing decision described there.
 - Tests mirror production code under `test/unit_tests/` and `test/widget_tests/`, with reusable fixtures in `test/test_files/` and caches in `test/cache/`.
 
 ## Build, Test, and Development Commands
@@ -32,4 +33,5 @@
 
 ## Security & Configuration Tips
 - Keep store credentials and service accounts outside the repo; point Fastlane to them via environment variables like `GOOGLE_SERVICE_ACCOUNT_JSON_PATH`.
+- Streaming URLs resolved by the `music/` module are signed, bound to the requesting IP and expire within hours; never log, persist or share them.
 - When bumping dependencies or assets, cross-check platform builds and update `CHANGELOG.md` alongside the code change.
