@@ -23,3 +23,9 @@
 # Annotations referenced by the extractor but absent on Android.
 -dontwarn javax.annotation.**
 -dontwarn org.checkerframework.**
+
+# Rhino's optional integrations with desktop APIs. Android ships none of these,
+# and the extractor only drives Rhino through its direct Context API.
+-dontwarn java.beans.**
+-dontwarn javax.script.**
+-dontwarn jdk.dynalink.**
