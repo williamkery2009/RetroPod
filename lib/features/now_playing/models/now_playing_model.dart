@@ -1,7 +1,7 @@
 import 'package:just_audio/just_audio.dart';
 import 'package:retropod/core/models/music_metadata.dart';
 
-enum NowPlayingType { album, playlist, songs }
+enum NowPlayingType { album, playlist, songs, online }
 
 class NowPlayingModel {
   final int currentIndex;

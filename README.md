@@ -20,6 +20,24 @@ favorite tracks with the same ease as the original iPod.
 personal music collection takes center stage. Organize your tracks, albums, and playlists just like
 you did on your trusty iPod Classic.
 
+**Online Music:** Open Music > Online Music to search iTunes previews, Deezer
+previews, or Internet radio. Select the Source row to cycle services. Use the
+existing search input, then press Menu to browse results with the click wheel.
+Previews are excerpts, not full recordings; radio plays live HTTPS streams.
+Availability depends on your region, the provider, and browser CORS support.
+
+**Online Lyrics:** In Now Playing options, choose Find lyrics (LRCLIB) for a local
+song without embedded lyrics. Existing lyrics are preserved. Matching uses title,
+artist, album and duration. Line synchronization is available when LRCLIB provides
+it; word timing still requires an enhanced LRC source.
+
+Provider references: [public-apis music directory](https://github.com/public-apis/public-apis#music),
+[iTunes Search](https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/),
+[Radio Browser](https://api.radio-browser.info/), and [LRCLIB](https://lrclib.net/docs).
+The [Mornye project](https://github.com/mornyeapp/Mornye) also uses Deezer's public
+catalog API and LRCLIB. These integrations independently call the same services;
+no Mornye source code, credentials, or private download endpoints are bundled.
+
 **Customizable Themes:** Personalize your RetroPod experience with the option of silver or grey
 device frame. Choose from the two different color schemes to tailor the app's appearance to your
 unique style.

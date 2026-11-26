@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/rendering.dart';
@@ -285,13 +284,6 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     // The second singer in a duet sits on the right.
     final bool isRight = line.voice == 2;
     final TextAlign textAlign = isRight ? TextAlign.right : TextAlign.left;
-    final int focusIndex = _activeLineIndex < 0 ? 0 : _activeLineIndex;
-    final int distance = (index - focusIndex).abs();
-    // Only nearby lines are blurred, which limits the number of blur layers.
-    final double blur = isActive || _isBrowsing || distance > 4
-        ? 0
-        : math.min(distance * 0.8, 3.0);
-
     final TextStyle style = TextStyle(
       fontSize: widget.fontSize,
       height: 1.25,
@@ -331,18 +323,9 @@ class _LyricsViewState extends ConsumerState<LyricsView>
           duration: const Duration(milliseconds: 400),
           curve: Curves.easeOut,
           child: AnimatedOpacity(
-            opacity: isActive ? 1 : (_isBrowsing ? 0.6 : 0.35),
+            opacity: isActive ? 1 : (_isBrowsing ? 0.75 : 0.55),
             duration: const Duration(milliseconds: 400),
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(end: blur),
-              duration: const Duration(milliseconds: 400),
-              child: SizedBox(width: double.infinity, child: text),
-              builder: (context, sigma, child) => ImageFiltered(
-                enabled: sigma > 0.05,
-                imageFilter: ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
-                child: child,
-              ),
-            ),
+            child: SizedBox(width: double.infinity, child: text),
           ),
         ),
       ),
@@ -355,9 +338,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     TextStyle leadStyle,
     TextAlign textAlign,
   ) {
-    final TextStyle style = leadStyle.copyWith(
-      fontSize: widget.fontSize * 0.7,
-    );
+    final TextStyle style = leadStyle.copyWith(fontSize: widget.fontSize * 0.7);
 
     return Padding(
       padding: const EdgeInsets.only(top: 4),

@@ -36,6 +36,7 @@ import 'package:retropod/features/music/playlist/screens/playlist_rename_screen.
 import 'package:retropod/features/music/playlist/screens/playlist_songs_more_options_modal.dart';
 import 'package:retropod/features/music/playlist/screens/playlist_songs_screen.dart';
 import 'package:retropod/features/music/playlist/screens/playlists_screen.dart';
+import 'package:retropod/features/music/search/screens/online_music_screen.dart';
 import 'package:retropod/features/music/search/screens/search_more_options_modal.dart';
 import 'package:retropod/features/music/search/screens/search_screen.dart';
 import 'package:retropod/features/music/songs/screens/songs_more_options_modal.dart';
@@ -83,6 +84,7 @@ enum Routes {
   genreSongs,
   genresSongsMoreOptions,
   search,
+  onlineMusic,
   searchMoreOptions,
   // New features
   extras,
@@ -162,6 +164,8 @@ enum Routes {
         return context.localization.genreSongsScreenTitle;
       case genresSongsMoreOptions:
         return context.localization.genreSongsScreenTitle;
+      case onlineMusic:
+        return 'Online Music';
       case search:
         return context.localization.searchScreenTitle;
       case searchMoreOptions:
@@ -622,6 +626,13 @@ final routerProvider = Provider(
                             ],
                           ),
                         ],
+                      ),
+                      GoRoute(
+                        path: Routes.onlineMusic.name,
+                        name: Routes.onlineMusic.name,
+                        parentNavigatorKey: rootNavigatorKey,
+                        pageBuilder: (context, state) =>
+                            const CupertinoPage(child: OnlineMusicScreen()),
                       ),
                       GoRoute(
                         path: Routes.search.name,

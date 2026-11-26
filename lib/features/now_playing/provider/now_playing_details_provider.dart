@@ -20,6 +20,8 @@ class NowPlayingDetailsNotifier extends Notifier<NowPlayingModel> {
     ref.read(audioPlayerProvider).currentIndexStream.listen((newIndex) {
       if (newIndex != null &&
           newIndex != state.currentIndex &&
+          newIndex >= 0 &&
+          newIndex < state.metadataList.length &&
           state.metadataList.isNotEmpty) {
         state = state.copyWith(
           currentIndex: newIndex,
@@ -94,18 +96,20 @@ class NowPlayingDetailsNotifier extends Notifier<NowPlayingModel> {
   Future<void> updateMetadata(MusicMetadata updatedMetadata) async {
     state = state.copyWith(
       currentMetadata:
-          state.currentMetadata?.originalSongIndex ==
-              updatedMetadata.originalSongIndex
+          state.currentMetadata?.filePath == updatedMetadata.filePath
           ? updatedMetadata
           : state.currentMetadata,
       metadataList: [
         for (final metadata in state.metadataList)
-          if (metadata.originalSongIndex == updatedMetadata.originalSongIndex)
+          if (metadata.filePath == updatedMetadata.filePath)
             updatedMetadata
           else
             metadata,
       ],
     );
+
+    // Remote results are transient and have no row in the local library.
+    if (!updatedMetadata.isOnDevice) return;
 
     final Box<MusicMetadata> metadataBox = Hive.box<MusicMetadata>(
       Constants.metadataBoxName,
