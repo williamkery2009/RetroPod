@@ -272,7 +272,8 @@ class YtMusicBridge private constructor(
             "durationMs" to if (duration == C.TIME_UNSET) -1L else duration,
             "index" to player.currentMediaItemIndex,
             "queueSize" to player.mediaItemCount,
-            "audioSessionId" to player.audioSessionId,
+            // Player has no audio session API; only the local ExoPlayer does.
+            "audioSessionId" to YtPlaybackService.audioSessionId(),
         )
     }
 
