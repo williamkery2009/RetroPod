@@ -310,3 +310,11 @@ The SoundCloud request/response behaviour was reviewed against Mornye's
 [source-backed provider](https://github.com/mornyeapp/Mornye-Extension/tree/main/sources/soundcloud).
 RetroPod's adapter is independently implemented in Dart; Mornye extension code
 is not bundled or executed.
+
+### Mornye extension packages (Android, experimental)
+
+Online Music → Extensions can install/update packages from the Mornye catalog,
+manage settings, and select an installed extension for search. Audio-capable
+extensions prepare a private audio file before playback. Metadata-only packages
+cannot play songs. Account/browser authorization and Mornye session grants are
+not integrated. See [compatibility and build instructions](native/README.md).

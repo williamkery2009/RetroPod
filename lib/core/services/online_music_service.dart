@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:retropod/core/services/mornye_extension_service.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:retropod/core/models/music_metadata.dart';
@@ -45,6 +47,9 @@ class OnlineMusicService {
   late final PipedService _piped = PipedService(_client);
 
   Future<MusicMetadata> resolveForPlayback(MusicMetadata song) async {
+    if (MornyeExtensionService.reference(song) != null) {
+      return MornyeExtensionService.instance.resolve(song);
+    }
     if (SoundCloudService.idFor(song) != null) return _soundcloud.resolve(song);
     if (JioSaavnService.idFor(song) != null) return _jiosaavn.resolve(song);
     final id = YoutubeMusicService.videoIdFor(song);

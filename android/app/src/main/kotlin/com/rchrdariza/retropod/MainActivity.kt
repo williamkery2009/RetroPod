@@ -1,5 +1,11 @@
 package com.rchrdariza.retropod
 
-import io.flutter.embedding.android.FlutterActivity
+import com.ryanheise.audioservice.AudioServiceActivity
+import io.flutter.embedding.engine.FlutterEngine
 
-class MainActivity : FlutterActivity()
+class MainActivity : AudioServiceActivity() {
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+        MornyeExtensions.attach(this, flutterEngine.dartExecutor.binaryMessenger)
+    }
+}

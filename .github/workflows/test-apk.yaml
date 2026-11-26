@@ -31,6 +31,16 @@ jobs:
           flutter pub get
           flutter gen-l10n
 
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.100.0
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+      - name: Install Android Rust builder
+        run: cargo install cargo-ndk --locked
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: build/mornye-source/rust_backend
+
       # Without key.properties this is signed with a temporary debug key.
       - name: Build dev APK
         run: flutter build apk --release --flavor dev --target=lib/main.dart
@@ -40,4 +50,12 @@ jobs:
           name: retropod-dev-apk
           path: build/app/outputs/flutter-apk/app-dev-release.apk
           if-no-files-found: error
+          retention-days: 14
+
+      - name: Package runtime source
+        run: tar --exclude=target -czf build/mornye-runtime-source.tar.gz -C build/mornye-source rust_backend LICENSE COPYING
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mornye-runtime-source
+          path: build/mornye-runtime-source.tar.gz
           retention-days: 14

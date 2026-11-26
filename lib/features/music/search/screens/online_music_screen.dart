@@ -1,5 +1,8 @@
 import 'dart:async';
 
+import 'package:retropod/core/services/mornye_extension_service.dart';
+import 'package:retropod/features/music/search/screens/mornye_extensions_screen.dart';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -29,6 +32,7 @@ class OnlineMusicScreen extends ConsumerStatefulWidget {
 class _OnlineMusicScreenState extends ConsumerState<OnlineMusicScreen>
     with CustomInputTextScreen {
   MusicSource _source = MusicSource.itunes;
+  Map<String, dynamic>? _extension;
   List<MusicMetadata> _results = [];
   Timer? _debounce;
   int _request = 0;
@@ -55,11 +59,15 @@ class _OnlineMusicScreenState extends ConsumerState<OnlineMusicScreen>
     });
     if (!_loading) return;
     final source = _source;
+    final extension = _extension;
     _debounce = Timer(const Duration(milliseconds: 500), () async {
       try {
-        final results = await ref
-            .read(onlineMusicServiceProvider)
-            .search(source, value);
+        final results = extension == null
+            ? await ref.read(onlineMusicServiceProvider).search(source, value)
+            : await MornyeExtensionService.instance.search(
+                extension['id'] as String,
+                value,
+              );
         if (!mounted || request != _request) return;
         setState(() {
           _results = results;
@@ -87,6 +95,7 @@ class _OnlineMusicScreenState extends ConsumerState<OnlineMusicScreen>
     if (_playing) return;
     if (index == 0) {
       setState(() {
+        _extension = null;
         _source =
             MusicSource.values[(_source.index + 1) % MusicSource.values.length];
       });
@@ -139,7 +148,9 @@ class _OnlineMusicScreenState extends ConsumerState<OnlineMusicScreen>
         builder: (context) => CupertinoAlertDialog(
           title: const Text('Unable to play'),
           content: Text(
-            error is SoundCloudException
+            error is MornyeExtensionException
+                ? error.message
+                : error is SoundCloudException
                 ? error.message
                 : error is JioSaavnException
                 ? error.message
@@ -259,7 +270,7 @@ class _OnlineMusicScreenState extends ConsumerState<OnlineMusicScreen>
             itemBuilder: (context, index) {
               final song = index > 1 ? _results[index - 2] : null;
               final title = index == 0
-                  ? 'Source: ${_source.label}'
+                  ? 'Source: ${_extension?['display_name'] ?? _source.label}'
                   : index == 1
                   ? 'Search: $inputText'
                   : song!.getTrackName;
@@ -267,7 +278,9 @@ class _OnlineMusicScreenState extends ConsumerState<OnlineMusicScreen>
                   ? 'Select to change source'
                   : index == 1
                   ? 'Select to edit search'
-                  : '${song!.getMainArtistName} · ${_source == MusicSource.radio
+                  : '${song!.getMainArtistName} · ${_extension != null
+                        ? (_extension!['has_download_provider'] == true ? 'Extension audio' : 'Metadata only')
+                        : _source == MusicSource.radio
                         ? 'Live radio'
                         : (_source == MusicSource.youtubeMusic || _source == MusicSource.youtubePiped)
                         ? 'YouTube Music'
@@ -330,6 +343,33 @@ class _OnlineMusicScreenState extends ConsumerState<OnlineMusicScreen>
               'JioSaavn server',
               style: TextStyle(fontSize: 12),
             ),
+          ),
+        if (MornyeExtensionService.supported)
+          CupertinoButton(
+            padding: EdgeInsets.zero,
+            onPressed: _playing
+                ? null
+                : () async {
+                    final selected =
+                        await Navigator.of(
+                          context,
+                          rootNavigator: true,
+                        ).push<Map<String, dynamic>>(
+                          CupertinoPageRoute(
+                            builder: (_) => const MornyeExtensionsScreen(),
+                          ),
+                        );
+                    if (selected != null && mounted) {
+                      setState(() => _extension = selected);
+                      _search(inputText);
+                    }
+                  },
+            child: const Text('Extensions', style: TextStyle(fontSize: 12)),
+          ),
+        if (_playing && _extension != null)
+          const Text(
+            'Preparing extension audio...',
+            style: TextStyle(fontSize: 11),
           ),
         if (_loading || _playing) const CupertinoActivityIndicator(),
         GestureDetector(

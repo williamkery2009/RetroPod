@@ -12,7 +12,7 @@ fn dispatch(v: Value) -> Result<Value, String> {
     if op == "init" {
         if MANAGER.get().is_none() {
             let root = Path::new(string(&v, "root")?);
-            let manager = ExtensionManager::new(&root.join("sources"), &root.join("data"), string(&v, "key")?, "5.3.0", RuntimeLimits::default()).map_err(|e| e.to_string())?;
+            let manager = ExtensionManager::new(&root.join("sources"), &root.join("data"), string(&v, "key")?, "5.4.5", RuntimeLimits::default()).map_err(|e| e.to_string())?;
             let cache = root.join("audio");
             std::fs::create_dir_all(&cache).map_err(|e| e.to_string())?;
             manager.environment().set_allowed_download_directories(&[cache]).map_err(|e| e.to_string())?;
@@ -76,5 +76,48 @@ mod tests {
         let result = vm.call("searchTracks", "[\"Test\"]", None, 1000).unwrap();
         assert_eq!(serde_json::from_str::<Value>(&result).unwrap()["tracks"][0]["name"], "Test");
         assert!(vm.call("loop", "[]", None, 25).is_err());
+    }
+}
+
+#[cfg(test)]
+mod package_tests {
+    use super::*;
+    use std::io::Write;
+    #[test]
+    fn installs_searches_prepares_audio_and_persists_enabled_state() {
+        let dir = tempfile::tempdir().unwrap();
+        let package = dir.path().join("fixture.sflx");
+        let manifest = json!({"name":"fixture", "displayName":"Fixture", "version":"1.0.0",
+            "type":["metadata_provider","download_provider"],
+            "permissions":{"file":true,"storage":true}});
+        let source = r#"registerExtension({
+            searchTracks(q){return {tracks:[{id:'1',name:q,artists:'Artist',album_name:'Album',duration_ms:1000,provider_id:'fixture'}]};},
+            download(id,quality,path){const result=file.writeBytes(path,'UklGRg=='); return {success:result.success,file_path:path};}
+        });"#;
+        let mut zip = zip::ZipWriter::new(std::fs::File::create(&package).unwrap());
+        for (name, body) in [("manifest.json",manifest.to_string()),("index.js",source.to_string())] {
+            zip.start_file(name,zip::write::SimpleFileOptions::default()).unwrap();
+            zip.write_all(body.as_bytes()).unwrap();
+        }
+        zip.finish().unwrap();
+        let create = || ExtensionManager::new(&dir.path().join("sources"), &dir.path().join("data"), "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=", "5.4.5", RuntimeLimits::default()).unwrap();
+        let m = create();
+        m.install(&package).unwrap();
+        let found = parsed(m.search_metadata_provider("fixture","Search",10,1000).unwrap()).unwrap();
+        assert_eq!(found[0]["name"], "Search");
+        let audio = dir.path().join("audio"); std::fs::create_dir(&audio).unwrap();
+        m.environment().set_allowed_download_directories(&[audio.clone()]).unwrap();
+        let path = audio.join("test.wav");
+        let result = parsed(m.download("fixture",ProviderDownloadRequest {
+            track_id:"1".into(), quality:"high".into(), output_path:path.to_str().unwrap().into(),
+            item_id:"test".into(), prepared_context:None,
+        },1000).unwrap()).unwrap();
+        assert_eq!(result["success"],true,"{result}");
+        assert_eq!(std::fs::read(&path).unwrap(),b"RIFF");
+        m.set_enabled("fixture",false).unwrap(); m.shutdown();
+        let reopened=create(); reopened.load_all().unwrap();
+        assert!(reopened.search_metadata_provider("fixture","Search",10,1000).is_err());
+        reopened.remove("fixture").unwrap();
+        assert_eq!(parsed(reopened.installed().unwrap()).unwrap(),json!([]));
     }
 }

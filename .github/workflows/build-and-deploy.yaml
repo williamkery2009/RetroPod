@@ -196,6 +196,16 @@ jobs:
         run: |
           echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT_BASE64 }}" | base64 --decode > google_service_account.json
 
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.100.0
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+      - name: Install Android Rust builder
+        run: cargo install cargo-ndk --locked
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: build/mornye-source/rust_backend
+
       - name: Build APK
         uses: maierj/fastlane-action@v3.1.0
         with:

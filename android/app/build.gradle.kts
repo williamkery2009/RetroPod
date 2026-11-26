@@ -28,7 +28,7 @@ android {
 
     defaultConfig {
         applicationId = "com.rchrdariza.retropod"
-        minSdk = flutter.minSdkVersion
+        minSdk = maxOf(23, flutter.minSdkVersion)
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -91,3 +91,20 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+// Mornye's QuickJS host and bounded audio conversion commands.
+dependencies {
+    implementation("net.java.dev.jna:jna:5.19.1@aar")
+    implementation("com.antonkarpenko:ffmpeg-kit-audio:2.3.0")
+}
+
+val buildMornyeRuntime = tasks.register<Exec>("buildMornyeRuntime") {
+    workingDir(rootProject.projectDir.parentFile)
+    commandLine("bash", "scripts/build_mornye_runtime.sh")
+    environment("ANDROID_NDK_HOME", android.sdkDirectory.resolve("ndk/${android.ndkVersion}").absolutePath)
+    inputs.dir(rootProject.file("../native/mornye_bridge"))
+    inputs.file(rootProject.file("../scripts/prepare_mornye_runtime.sh"))
+    inputs.file(rootProject.file("../scripts/build_mornye_runtime.sh"))
+    outputs.dir(file("src/main/jniLibs"))
+}
+tasks.named("preBuild").configure { dependsOn(buildMornyeRuntime) }

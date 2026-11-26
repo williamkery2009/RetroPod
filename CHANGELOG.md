@@ -1,3 +1,13 @@
+## Unreleased — Mornye extension packages
+
+- Add Android `.sflx` registry installation/update, permission review, settings,
+  enable/disable/removal and installed-provider search.
+- Reuse pinned Mornye Rust/QuickJS runtime with scoped host services; prepare
+  audio-provider files for the existing background player.
+- Keep metadata-only providers distinct; account authorization, session grants,
+  extension lyrics and album browsing remain unsupported.
+- Fix malformed fallback notification artwork URL for tracks without artwork.
+
 Add public SoundCloud search and fresh progressive/HLS playback, plus an experimental configurable JioSaavn API adapter.
 
 Add Audius public-track search and streaming, excluding restricted tracks and preserving remix titles and uploader attribution.
