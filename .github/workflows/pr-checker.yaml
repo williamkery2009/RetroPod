@@ -28,4 +28,4 @@ jobs:
 
       - name: Run Flutter Tests
         run: |
-          flutter test
+          flutter test --no-pub --coverage --suppress-analytics
