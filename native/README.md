@@ -50,7 +50,8 @@ For host tests, run `bash scripts/prepare_mornye_runtime.sh`, then from
 `cargo test -p mornye-extensions package::`.
 
 The bridge and Mornye runtime are LGPL-3.0-only. License text and notices are in
-`assets/licenses/`. CI uploads the runtime source beside the APK. RetroPod source
+`assets/licenses/`; the Android build also copies the FFmpeg AAR's complete
+`LICENSES/` directory into APK assets. CI uploads the runtime source beside the APK. RetroPod source
 and these build scripts allow rebuilding/relinking with a modified runtime and
 signing/installing that build; no private signing key is needed for personal
 builds. To use a modified upstream tree, change the pinned checkout/script to

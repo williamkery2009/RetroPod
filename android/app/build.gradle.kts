@@ -109,3 +109,17 @@ val buildMornyeRuntime = tasks.register<Exec>("buildMornyeRuntime") {
     outputs.dir(file("src/main/jniLibs"))
 }
 tasks.named("preBuild").configure { dependsOn(buildMornyeRuntime) }
+
+// Preserve the audio distribution's per-library licenses and exact-source notices.
+val ffmpegNotices by configurations.creating {
+    isTransitive = false
+}
+dependencies {
+    add(ffmpegNotices.name, "com.antonkarpenko:ffmpeg-kit-audio:2.3.0@aar")
+}
+val copyFfmpegNotices = tasks.register<Sync>("copyFfmpegNotices") {
+    from({ ffmpegNotices.map { zipTree(it) } }) { include("LICENSES/**") }
+    into(layout.buildDirectory.dir("generated/ffmpegNotices"))
+}
+android.sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/ffmpegNotices"))
+tasks.named("preBuild").configure { dependsOn(copyFfmpegNotices) }

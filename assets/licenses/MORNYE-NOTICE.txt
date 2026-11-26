@@ -10,7 +10,8 @@ You may modify/rebuild/replace the library and rebuild/sign the application.
 No restriction is imposed on reverse engineering to debug library modifications.
 
 FFmpegKit audio is provided by com.antonkarpenko:ffmpeg-kit-audio:2.3.0.
-Its upstream license and corresponding source: https://github.com/sk3llo/ffmpeg_kit_flutter/tree/audio
+Its complete per-library license texts and source notices are bundled in
+the APK assets/LICENSES/ directory. Upstream project: https://github.com/sk3llo/ffmpeg_kit_flutter/tree/audio
 JNA is dual licensed LGPL-2.1-or-later / Apache-2.0:
 https://github.com/java-native-access/jna
 
