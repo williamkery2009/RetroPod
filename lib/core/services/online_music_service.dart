@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:retropod/core/models/music_metadata.dart';
+import 'package:retropod/core/services/audius_service.dart';
 import 'package:retropod/core/services/youtube_music_service.dart';
 import 'package:retropod/core/services/piped_service.dart';
 
@@ -10,6 +11,7 @@ enum MusicSource {
   itunes('iTunes previews'),
   deezer('Deezer previews'),
   radio('Internet radio'),
+  audius('Audius'),
   youtubeMusic('YouTube Music (experimental)'),
   youtubePiped('YouTube Music via Piped');
 
@@ -87,6 +89,10 @@ class OnlineMusicService {
     final Uri uri = switch (source) {
       MusicSource.youtubeMusic ||
       MusicSource.youtubePiped => throw StateError('Handled above'),
+      MusicSource.audius => Uri.https('api.audius.co', '/v1/tracks/search', {
+        'query': term,
+        'limit': '40',
+      }),
       MusicSource.itunes => Uri.https('itunes.apple.com', '/search', {
         'term': term,
         'entity': 'song',
@@ -127,6 +133,7 @@ class OnlineMusicService {
   }
 
   static List<MusicMetadata> parseResults(MusicSource source, Object? data) {
+    if (source == MusicSource.audius) return AudiusService.parseResults(data);
     if (source == MusicSource.youtubeMusic ||
         source == MusicSource.youtubePiped) {
       final songs = YoutubeMusicService.parseResults(data);
@@ -145,7 +152,9 @@ class OnlineMusicService {
     final seen = <String>{};
     for (final row in rows.whereType<Map>()) {
       final url = _https(switch (source) {
-        MusicSource.youtubeMusic || MusicSource.youtubePiped => null,
+        MusicSource.youtubeMusic ||
+        MusicSource.youtubePiped ||
+        MusicSource.audius => null,
         MusicSource.itunes => row['previewUrl'],
         MusicSource.deezer => row['preview'],
         MusicSource.radio => row['url_resolved'],
@@ -167,7 +176,8 @@ class OnlineMusicService {
           trackArtistNames: [
             switch (source) {
               MusicSource.youtubeMusic ||
-              MusicSource.youtubePiped => 'Unknown Artist',
+              MusicSource.youtubePiped ||
+              MusicSource.audius => 'Unknown Artist',
               MusicSource.itunes =>
                 _text(row['artistName']) ?? 'Unknown Artist',
               MusicSource.deezer =>
@@ -180,7 +190,9 @@ class OnlineMusicService {
           albumName: source.label,
           filePath: url,
           thumbnailPath: _https(switch (source) {
-            MusicSource.youtubeMusic || MusicSource.youtubePiped => null,
+            MusicSource.youtubeMusic ||
+            MusicSource.youtubePiped ||
+            MusicSource.audius => null,
             MusicSource.itunes => row['artworkUrl100'],
             MusicSource.deezer => album is Map ? album['cover_medium'] : null,
             MusicSource.radio => row['favicon'],

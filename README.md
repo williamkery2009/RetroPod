@@ -269,3 +269,16 @@ playback still requires an available instance on the device's connection.
 
 References: [Piped API](https://docs.piped.video/docs/api-documentation/) and
 [public instances](https://github.com/TeamPiped/documentation/blob/main/content/docs/public-instances/index.md).
+
+### Audius
+
+Select **Audius** in Online Music to search its catalogue. Public, streamable
+tracks are playable through Audius's HTTPS stream endpoint; gated, deleted,
+unlisted and unavailable tracks are excluded. Titles and uploader names remain
+visible, including remix labels. Audius results are never substituted for songs
+selected from another provider. Its catalogue is not equivalent to YouTube's.
+
+A live check returned search results and 1,024 MP3 bytes (HTTP 206) for
+“Blinding Lights - Zaza Remix”; this is a connectivity check, not a complete
+device playback test or confirmation of the original recording's availability.
+No new account credentials or dependencies are required for this public source.

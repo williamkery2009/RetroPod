@@ -1,3 +1,5 @@
+Add Audius public-track search and streaming, excluding restricted tracks and preserving remix titles and uploader attribution.
+
 Add selectable Piped audio resolution, an editable HTTPS API server, and one Piped fallback after YouTube extraction failure.
 
 Update the YouTube extraction client for upstream audio-stream 403 failures and show safe, specific playback diagnostics.

@@ -254,6 +254,8 @@ class _OnlineMusicScreenState extends ConsumerState<OnlineMusicScreen>
                         ? 'Live radio'
                         : (_source == MusicSource.youtubeMusic || _source == MusicSource.youtubePiped)
                         ? 'YouTube Music'
+                        : _source == MusicSource.audius
+                        ? 'Audius · uploader'
                         : 'Preview only'}';
               return GestureDetector(
                 behavior: HitTestBehavior.opaque,
