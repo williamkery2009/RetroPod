@@ -19,7 +19,7 @@ jobs:
 
       - name: Configure repo
         run: |
-          flutter pub get
+          flutter pub get --enforce-lockfile
           flutter gen-l10n
 
       - name: Lint Dart files

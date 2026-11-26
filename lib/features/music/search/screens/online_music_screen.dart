@@ -7,6 +7,8 @@ import 'package:retropod/core/models/music_metadata.dart';
 import 'package:retropod/core/navigation/routes.dart';
 import 'package:retropod/core/services/audio_player_service.dart';
 import 'package:retropod/core/services/online_music_service.dart';
+import 'package:retropod/core/services/youtube_music_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:retropod/core/widgets/input_text_bar.dart';
 import 'package:retropod/features/custom_screen_elements/custom_input_text_screen.dart';
 import 'package:retropod/features/now_playing/models/now_playing_model.dart';
@@ -99,7 +101,11 @@ class _OnlineMusicScreenState extends ConsumerState<OnlineMusicScreen>
     try {
       final player = ref.read(audioPlayerProvider);
       final details = ref.read(nowPlayingDetailsProvider.notifier);
-      await player.setAudioSources([song.toAudioSource()]);
+      final playable = await ref
+          .read(onlineMusicServiceProvider)
+          .resolveForPlayback(song);
+      if (!mounted) return;
+      await player.setAudioSources([playable.toAudioSource()]);
       await player.setShuffleModeEnabled(false);
       // Keep the playback queue and its metadata in sync even if the user
       // leaves this screen while the stream is loading.
@@ -110,30 +116,44 @@ class _OnlineMusicScreenState extends ConsumerState<OnlineMusicScreen>
       // play() completes when playback ends, not when it starts.
       unawaited(
         player.play().catchError((Object error) {
-          if (mounted) unawaited(_showPlaybackError());
+          if (mounted) unawaited(_showPlaybackError(song));
         }),
       );
       if (mounted) await context.pushNamed(Routes.nowPlaying.name);
     } catch (_) {
-      if (mounted) await _showPlaybackError();
+      if (mounted) await _showPlaybackError(song);
     } finally {
       if (mounted) setState(() => _playing = false);
     }
   }
 
-  Future<void> _showPlaybackError() => showCupertinoDialog<void>(
-    context: context,
-    builder: (context) => CupertinoAlertDialog(
-      title: const Text('Unable to play'),
-      content: const Text('This stream is unavailable. Try another result.'),
-      actions: [
-        CupertinoDialogAction(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('OK'),
+  Future<void> _showPlaybackError(MusicMetadata song) =>
+      showCupertinoDialog<void>(
+        context: context,
+        builder: (context) => CupertinoAlertDialog(
+          title: const Text('Unable to play'),
+          content: const Text(
+            'This stream is unavailable. Try another result.',
+          ),
+          actions: [
+            if (YoutubeMusicService.videoIdFor(song) != null)
+              CupertinoDialogAction(
+                onPressed: () async {
+                  await launchUrl(
+                    Uri.parse(song.filePath!),
+                    mode: LaunchMode.externalApplication,
+                  );
+                  if (context.mounted) Navigator.of(context).pop();
+                },
+                child: const Text('Open YouTube Music'),
+              ),
+            CupertinoDialogAction(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
         ),
-      ],
-    ),
-  );
+      );
 
   @override
   void dispose() {
@@ -163,7 +183,11 @@ class _OnlineMusicScreenState extends ConsumerState<OnlineMusicScreen>
                   ? 'Select to change source'
                   : index == 1
                   ? 'Select to edit search'
-                  : '${song!.getMainArtistName} · ${_source == MusicSource.radio ? 'Live radio' : 'Preview only'}';
+                  : '${song!.getMainArtistName} · ${_source == MusicSource.radio
+                        ? 'Live radio'
+                        : _source == MusicSource.youtubeMusic
+                        ? 'YouTube Music'
+                        : 'Preview only'}';
               return GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () => unawaited(_select(index)),

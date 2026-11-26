@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:retropod/core/models/music_metadata.dart';
 import 'package:retropod/core/providers/filtered_audio_files_provider.dart';
+import 'package:retropod/core/services/online_music_service.dart';
 import 'package:retropod/features/music/album/models/album_model.dart';
 import 'package:retropod/features/music/playlist/models/playlist_model.dart';
 import 'package:retropod/features/now_playing/models/now_playing_model.dart';
@@ -99,13 +100,12 @@ class AudioPlayerServiceNotifier extends AsyncNotifier<void> {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       final List<AudioSource> songSourcePlaylist = [];
-      int i = 0;
-      try {
-        for (final musicMetadata in musicMetadataList) {
-          songSourcePlaylist.add(musicMetadata.toAudioSource());
-          i = i + 1;
-        }
-      } catch (_) {}
+      for (final metadata in musicMetadataList) {
+        final playable = await ref
+            .read(onlineMusicServiceProvider)
+            .resolveForPlayback(metadata);
+        songSourcePlaylist.add(playable.toAudioSource());
+      }
 
       await ref
           .read(audioPlayerProvider)
@@ -314,7 +314,10 @@ class AudioPlayerServiceNotifier extends AsyncNotifier<void> {
   }) async {
     try {
       final player = ref.read(audioPlayerProvider);
-      await player.setAudioSource(metadata.toAudioSource());
+      final playable = await ref
+          .read(onlineMusicServiceProvider)
+          .resolveForPlayback(metadata);
+      await player.setAudioSource(playable.toAudioSource());
       await player.seek(startAt);
       await player.play();
     } catch (_) {}

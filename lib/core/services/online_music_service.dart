@@ -3,11 +3,13 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:retropod/core/models/music_metadata.dart';
+import 'package:retropod/core/services/youtube_music_service.dart';
 
 enum MusicSource {
   itunes('iTunes previews'),
   deezer('Deezer previews'),
-  radio('Internet radio');
+  radio('Internet radio'),
+  youtubeMusic('YouTube Music (experimental)');
 
   const MusicSource(this.label);
   final String label;
@@ -23,6 +25,10 @@ final onlineMusicServiceProvider = Provider<OnlineMusicService>((ref) {
 class OnlineMusicService {
   OnlineMusicService(this._client);
   final http.Client _client;
+  late final YoutubeMusicService _youtube = YoutubeMusicService(_client);
+
+  Future<MusicMetadata> resolveForPlayback(MusicMetadata song) =>
+      _youtube.resolveForPlayback(song);
 
   Future<Object?> _get(Uri uri, {bool allowNotFound = false}) async {
     final response = await _client
@@ -40,7 +46,9 @@ class OnlineMusicService {
   Future<List<MusicMetadata>> search(MusicSource source, String query) async {
     final term = query.trim();
     if (term.isEmpty) return [];
+    if (source == MusicSource.youtubeMusic) return _youtube.search(term);
     final Uri uri = switch (source) {
+      MusicSource.youtubeMusic => throw StateError('Handled above'),
       MusicSource.itunes => Uri.https('itunes.apple.com', '/search', {
         'term': term,
         'entity': 'song',
@@ -81,6 +89,9 @@ class OnlineMusicService {
   }
 
   static List<MusicMetadata> parseResults(MusicSource source, Object? data) {
+    if (source == MusicSource.youtubeMusic) {
+      return YoutubeMusicService.parseResults(data);
+    }
     if (data is Map && data['error'] != null) {
       throw StateError('Provider rejected the search. Try again later.');
     }
@@ -94,6 +105,7 @@ class OnlineMusicService {
     final seen = <String>{};
     for (final row in rows.whereType<Map>()) {
       final url = _https(switch (source) {
+        MusicSource.youtubeMusic => null,
         MusicSource.itunes => row['previewUrl'],
         MusicSource.deezer => row['preview'],
         MusicSource.radio => row['url_resolved'],
@@ -114,6 +126,7 @@ class OnlineMusicService {
               'Untitled',
           trackArtistNames: [
             switch (source) {
+              MusicSource.youtubeMusic => 'Unknown Artist',
               MusicSource.itunes =>
                 _text(row['artistName']) ?? 'Unknown Artist',
               MusicSource.deezer =>
@@ -126,6 +139,7 @@ class OnlineMusicService {
           albumName: source.label,
           filePath: url,
           thumbnailPath: _https(switch (source) {
+            MusicSource.youtubeMusic => null,
             MusicSource.itunes => row['artworkUrl100'],
             MusicSource.deezer => album is Map ? album['cover_medium'] : null,
             MusicSource.radio => row['favicon'],

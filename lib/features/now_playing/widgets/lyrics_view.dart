@@ -9,6 +9,7 @@ import 'package:retropod/core/models/lrc_lyrics.dart';
 import 'package:retropod/core/services/audio_player_service.dart';
 import 'package:retropod/features/now_playing/widgets/interlude_dots.dart';
 import 'package:retropod/features/now_playing/widgets/karaoke_line.dart';
+import 'package:retropod/features/now_playing/widgets/lyric_focus.dart';
 import 'package:retropod/features/now_playing/widgets/spring_offset.dart';
 
 class LyricsView extends ConsumerStatefulWidget {
@@ -325,7 +326,11 @@ class _LyricsViewState extends ConsumerState<LyricsView>
           child: AnimatedOpacity(
             opacity: isActive ? 1 : (_isBrowsing ? 0.75 : 0.55),
             duration: const Duration(milliseconds: 400),
-            child: SizedBox(width: double.infinity, child: text),
+            child: LyricFocus(
+              isActive: isActive,
+              isBrowsing: _isBrowsing,
+              child: SizedBox(width: double.infinity, child: text),
+            ),
           ),
         ),
       ),

@@ -1,3 +1,5 @@
+Use subtle consistent blur on inactive lyrics and keep active/browsed lines sharp. Add experimental YouTube Music search and fresh audio-stream resolution, plus a separate Kotlin/NewPipe/Media3 architecture guide.
+
 Keep inactive lyrics crisp and readable. Add online music previews, HTTPS radio stations, and optional LRCLIB lyrics lookup for local songs.
 
 [prepared for F-Droid: reproducible builds, MIT license, free fonts](https://github.com/RchrdAriza/RetroPod/releases/tag/1.14.0)

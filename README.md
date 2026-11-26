@@ -21,10 +21,22 @@ personal music collection takes center stage. Organize your tracks, albums, and 
 you did on your trusty iPod Classic.
 
 **Online Music:** Open Music > Online Music to search iTunes previews, Deezer
-previews, or Internet radio. Select the Source row to cycle services. Use the
+previews, Internet radio, or experimental YouTube Music. Select the Source row to cycle services. Use the
 existing search input, then press Menu to browse results with the click wheel.
 Previews are excerpts, not full recordings; radio plays live HTTPS streams.
+YouTube Music uses unauthenticated Innertube song search and youtube_explode_dart
+to resolve audio at playback time. It needs no Data API key, but extraction can
+fail when YouTube changes its service or restricts a connection. An Open YouTube
+Music action is available when playback fails. Signed audio URLs are not saved as
+library identifiers. Long-lived queues may need to be reselected if URLs expire.
 Availability depends on your region, the provider, and browser CORS support.
+
+**Lyric Focus:** Inactive lines have a subtle 0.65-pixel blur. The current line
+and lines being manually browsed remain sharp; distant lines do not suddenly
+become sharper than nearby ones.
+
+For a separate Kotlin/NewPipe/Media3 reference, see the
+[native Android architecture and code](docs/native-youtube-music/README.md).
 
 **Online Lyrics:** In Now Playing options, choose Find lyrics (LRCLIB) for a local
 song without embedded lyrics. Existing lyrics are preserved. Matching uses title,
