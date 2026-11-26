@@ -6,6 +6,14 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        // NewPipeExtractor is published on JitPack only. The content filter
+        // keeps JitPack from being used to resolve any other dependency.
+        maven {
+            url = uri("https://jitpack.io")
+            content {
+                includeGroup("com.github.teamnewpipe")
+            }
+        }
     }
 }
 
