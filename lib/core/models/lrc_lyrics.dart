@@ -37,15 +37,38 @@ class LrcLine {
   /// Singer number from a `v1:` style label. Defaults to 1.
   final int voice;
 
+  /// Backing vocals sung along with this line.
+  final List<LrcWord> backgroundWords;
+
   /// When the last word ends, or `null` for line-synced lyrics.
-  Duration? get end => words.isEmpty ? null : words.last.end;
+  Duration? get end {
+    if (words.isEmpty) {
+      return null;
+    }
+    if (backgroundWords.isNotEmpty &&
+        backgroundWords.last.end > words.last.end) {
+      return backgroundWords.last.end;
+    }
+    return words.last.end;
+  }
 
   const LrcLine({
     required this.timestamp,
     required this.text,
     this.words = const [],
     this.voice = 1,
+    this.backgroundWords = const [],
   });
+
+  LrcLine withBackgroundWords(List<LrcWord> newBackgroundWords) {
+    return LrcLine(
+      timestamp: timestamp,
+      text: text,
+      words: words,
+      voice: voice,
+      backgroundWords: newBackgroundWords,
+    );
+  }
 }
 
 /// Parsed synchronized (LRC) lyrics.
@@ -88,6 +111,9 @@ final RegExp _wordTimestampPattern = RegExp(
 /// Matches a singer label such as `v1:` at the start of a line.
 final RegExp _voicePattern = RegExp(r'^v(\d+):\s*');
 
+/// Matches a `[bg: ...]` line of backing vocals.
+final RegExp _backgroundPattern = RegExp(r'^\[bg:(.*)\]$');
+
 /// Matches an LRC `[offset:+500]` metadata tag.
 final RegExp _offsetPattern = RegExp(r'\[offset:([+-]?\d+)\]');
 
@@ -112,6 +138,17 @@ LrcLyrics? parseLrcLyrics(String? source) {
     final RegExpMatch? offsetMatch = _offsetPattern.firstMatch(line);
     if (offsetMatch != null) {
       offsetMilliseconds = int.tryParse(offsetMatch.group(1)!);
+      continue;
+    }
+
+    // Backing vocals belong to the line written just before them.
+    final RegExpMatch? backgroundMatch = _backgroundPattern.firstMatch(line);
+    if (backgroundMatch != null) {
+      if (lines.isNotEmpty) {
+        lines.last = lines.last.withBackgroundWords(
+          _parseWords(backgroundMatch.group(1)!, offsetMilliseconds ?? 0),
+        );
+      }
       continue;
     }
 

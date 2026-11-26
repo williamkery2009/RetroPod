@@ -12,6 +12,7 @@ import 'package:retropod/core/widgets/empty_state_widget.dart';
 import 'package:retropod/features/device/models/device_action.dart';
 import 'package:retropod/features/device/services/device_buttons_service_provider.dart';
 import 'package:retropod/features/now_playing/provider/now_playing_details_provider.dart';
+import 'package:retropod/features/now_playing/screen/full_screen_lyrics_screen.dart';
 import 'package:retropod/features/now_playing/widgets/fluid_art_background.dart';
 import 'package:retropod/features/now_playing/widgets/lyrics_view.dart';
 import 'package:retropod/features/now_playing/widgets/now_playing_widget.dart';
@@ -119,7 +120,23 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
     }
   }
 
+  void openFullScreenLyrics() {
+    unawaited(
+      Navigator.of(context, rootNavigator: true).push(
+        CupertinoPageRoute<void>(
+          fullscreenDialog: true,
+          builder: (_) => const FullScreenLyricsScreen(),
+        ),
+      ),
+    );
+  }
+
   void onSelectLongPress() {
+    // Holding the center button over the lyrics expands them.
+    if (_bottomBarPage == _NowPlayingBottomBarPage.lyrics) {
+      openFullScreenLyrics();
+      return;
+    }
     unawaited(context.pushNamed(Routes.nowPlayingMoreOptions.name));
   }
 
@@ -402,12 +419,31 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 300),
                   child: showsLyrics
-                      ? LyricsView(
+                      ? Stack(
                           key: ValueKey(
                             'lyrics-view-${nowPlayingDetails.currentMetadata?.originalSongIndex ?? 0}',
                           ),
-                          lyrics: lyrics,
-                          scrollController: _lyricsScrollController,
+                          fit: StackFit.expand,
+                          children: [
+                            LyricsView(
+                              lyrics: lyrics,
+                              scrollController: _lyricsScrollController,
+                            ),
+                            Positioned(
+                              top: 0,
+                              right: 4,
+                              child: CupertinoButton(
+                                padding: const EdgeInsets.all(6),
+                                minimumSize: Size.zero,
+                                onPressed: openFullScreenLyrics,
+                                child: const Icon(
+                                  CupertinoIcons.fullscreen,
+                                  size: 20,
+                                  color: CupertinoColors.white,
+                                ),
+                              ),
+                            ),
+                          ],
                         )
                       : NowPlayingWidget(
                           key: const ValueKey('now-playing-view'),

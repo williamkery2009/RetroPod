@@ -10,15 +10,18 @@ import 'package:retropod/core/models/lrc_lyrics.dart';
 import 'package:retropod/core/services/audio_player_service.dart';
 import 'package:retropod/features/now_playing/widgets/interlude_dots.dart';
 import 'package:retropod/features/now_playing/widgets/karaoke_line.dart';
+import 'package:retropod/features/now_playing/widgets/spring_offset.dart';
 
 class LyricsView extends ConsumerStatefulWidget {
   final String? lyrics;
   final ScrollController scrollController;
+  final double fontSize;
 
   const LyricsView({
     super.key,
     required this.lyrics,
     required this.scrollController,
+    this.fontSize = 22,
   });
 
   @override
@@ -45,9 +48,15 @@ class _LyricsViewState extends ConsumerState<LyricsView>
   bool _isBrowsing = false;
   Timer? _browseTimer;
 
-  /// Identifies the latest auto-scroll, or 0 when none is running.
-  int _autoScrollId = 0;
-  int _autoScrollCount = 0;
+  /// True while this view moves the scroll position itself.
+  bool _isAutoScrolling = false;
+
+  /// Each new bounce makes the lines spring from [_bounceDistance] away.
+  int _bounceId = 0;
+  double _bounceDistance = 0;
+
+  /// Corrects the position once collapsing break dots have settled.
+  Timer? _settleTimer;
 
   @override
   void initState() {
@@ -100,12 +109,20 @@ class _LyricsViewState extends ConsumerState<LyricsView>
   void _scrollAfterFrame() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && !_isBrowsing) {
-        unawaited(_scrollToActiveLine());
+        _scrollToActiveLine();
+        _settleTimer?.cancel();
+        _settleTimer = Timer(const Duration(milliseconds: 350), () {
+          if (mounted && !_isBrowsing) {
+            _scrollToActiveLine();
+          }
+        });
       }
     });
   }
 
-  Future<void> _scrollToActiveLine() async {
+  /// Jumps to the active line, then lets each line spring into its new
+  /// place one after another.
+  void _scrollToActiveLine() {
     if (_activeLineIndex < 0 || !widget.scrollController.hasClients) {
       return;
     }
@@ -130,27 +147,22 @@ class _LyricsViewState extends ConsumerState<LyricsView>
       return;
     }
 
-    final int id = ++_autoScrollCount;
-    _autoScrollId = id;
-    await widget.scrollController.animateTo(
-      target,
-      duration: const Duration(milliseconds: 600),
-      curve: const Cubic(0.25, 0.1, 0.2, 1),
-    );
-    if (_autoScrollId == id) {
-      _autoScrollId = 0;
+    final double distance = target - scrollPosition.pixels;
+    _isAutoScrolling = true;
+    widget.scrollController.jumpTo(target);
+    _isAutoScrolling = false;
+
+    if (!MediaQuery.disableAnimationsOf(context)) {
+      setState(() {
+        _bounceDistance = distance;
+        _bounceId++;
+      });
     }
   }
 
   /// Any scroll that is not ours comes from touch or the click wheel.
   bool _handleScroll(ScrollNotification notification) {
-    final bool isDrag =
-        notification is ScrollStartNotification &&
-        notification.dragDetails != null;
-    if (isDrag) {
-      _autoScrollId = 0;
-    }
-    if (notification is! ScrollUpdateNotification || _autoScrollId != 0) {
+    if (notification is! ScrollUpdateNotification || _isAutoScrolling) {
       return false;
     }
 
@@ -183,6 +195,7 @@ class _LyricsViewState extends ConsumerState<LyricsView>
   @override
   void dispose() {
     _browseTimer?.cancel();
+    _settleTimer?.cancel();
     _ticker.dispose();
     _position.dispose();
     super.dispose();
@@ -250,7 +263,15 @@ class _LyricsViewState extends ConsumerState<LyricsView>
         );
       }
       previousEnd = line.end;
-      children.add(_buildLine(i, line));
+      children.add(
+        SpringOffset(
+          bounceId: _bounceId,
+          distance: _bounceDistance,
+          // Lines further below the active one start later.
+          delayStep: (i - _activeLineIndex).clamp(0, 6),
+          child: _buildLine(i, line),
+        ),
+      );
     }
 
     return Column(
@@ -271,21 +292,31 @@ class _LyricsViewState extends ConsumerState<LyricsView>
         ? 0
         : math.min(distance * 0.8, 3.0);
 
-    const TextStyle style = TextStyle(
-      fontSize: 22,
+    final TextStyle style = TextStyle(
+      fontSize: widget.fontSize,
       height: 1.25,
       fontWeight: FontWeight.bold,
       color: CupertinoColors.white,
     );
 
-    final Widget text = isActive && line.words.isNotEmpty
+    final Widget leadText = isActive && line.words.isNotEmpty
         ? KaraokeLine(
-            line: line,
+            words: line.words,
             position: _position,
             style: style,
             textAlign: textAlign,
           )
         : Text(line.text, style: style, textAlign: textAlign);
+
+    final Widget text = line.backgroundWords.isEmpty
+        ? leadText
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              leadText,
+              _buildBackgroundVocals(line, isActive, style, textAlign),
+            ],
+          );
 
     return GestureDetector(
       key: _lineKeys[index],
@@ -315,6 +346,33 @@ class _LyricsViewState extends ConsumerState<LyricsView>
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildBackgroundVocals(
+    LrcLine line,
+    bool isActive,
+    TextStyle leadStyle,
+    TextAlign textAlign,
+  ) {
+    final TextStyle style = leadStyle.copyWith(
+      fontSize: widget.fontSize * 0.7,
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: isActive
+          ? KaraokeLine(
+              words: line.backgroundWords,
+              position: _position,
+              style: style,
+              textAlign: textAlign,
+            )
+          : Text(
+              line.backgroundWords.map((word) => word.text).join().trim(),
+              style: style,
+              textAlign: textAlign,
+            ),
     );
   }
 }

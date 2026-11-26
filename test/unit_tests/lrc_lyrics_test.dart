@@ -93,6 +93,18 @@ void main() {
       expect(line.end, const Duration(milliseconds: 2500));
     });
 
+    test('attaches background vocals to the line before them', () {
+      final lyrics = parseLrcLyrics(
+        '[00:01.00]<00:01.000>lead<00:02.000>\n'
+        '[bg: <00:01.500>echo<00:03.000>]',
+      )!;
+
+      final line = lyrics.lines.single;
+      expect(line.text, 'lead');
+      expect(line.backgroundWords.single.text, 'echo');
+      expect(line.end, const Duration(seconds: 3));
+    });
+
     test('reports word progress between its start and end', () {
       const word = LrcWord(
         start: Duration(seconds: 1),

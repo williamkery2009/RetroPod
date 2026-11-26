@@ -4,17 +4,18 @@ import 'dart:ui' as ui;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:retropod/core/models/lrc_lyrics.dart';
+import 'package:retropod/core/utils/letter_glow.dart';
 
 /// Paints a lyric line that fills word by word as [position] advances.
 class KaraokeLine extends StatelessWidget {
-  final LrcLine line;
+  final List<LrcWord> words;
   final ValueListenable<Duration> position;
   final TextStyle style;
   final TextAlign textAlign;
 
   const KaraokeLine({
     super.key,
-    required this.line,
+    required this.words,
     required this.position,
     required this.style,
     required this.textAlign,
@@ -28,7 +29,7 @@ class KaraokeLine extends StatelessWidget {
 
     // Joined words match LrcLine.text apart from outer whitespace, and keep
     // the character offsets used by the painter exact.
-    final String text = line.words.map((word) => word.text).join().trimRight();
+    final String text = words.map((word) => word.text).join().trimRight();
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -49,7 +50,7 @@ class KaraokeLine extends StatelessWidget {
           child: CustomPaint(
             size: size,
             painter: _KaraokePainter(
-              words: line.words,
+              words: words,
               text: text,
               position: position,
               style: baseStyle,
@@ -182,7 +183,7 @@ class _KaraokePainter extends CustomPainter {
       }
 
       if (word.end - word.start >= _longWord && progress > 0 && progress < 1) {
-        _paintGlow(canvas, bright, boxes, rise, math.sin(math.pi * progress));
+        _paintLetterGlow(canvas, dim, bright, start, end, rise, progress);
       }
     }
 
@@ -190,29 +191,57 @@ class _KaraokePainter extends CustomPainter {
     bright.dispose();
   }
 
-  void _paintGlow(
+  /// Lights up the letters of a held word one after another.
+  void _paintLetterGlow(
     Canvas canvas,
+    TextPainter layout,
     TextPainter bright,
-    List<TextBox> boxes,
+    int start,
+    int end,
     double rise,
-    double strength,
+    double progress,
   ) {
-    for (final TextBox box in boxes) {
-      final Rect rect = box.toRect().shift(Offset(0, -rise));
-      canvas.saveLayer(
-        rect.inflate(12),
-        Paint()
-          ..color = Color.fromRGBO(255, 255, 255, 0.7 * strength)
-          ..imageFilter = ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-      );
-      canvas
-        ..save()
-        ..clipRect(rect)
-        ..translate(0, -rise);
-      bright.paint(canvas, Offset.zero);
-      canvas
-        ..restore()
-        ..restore();
+    final String word = text.substring(start, end).trimRight();
+    int offset = start;
+    int index = 0;
+    final int count = word.characters.length;
+
+    for (final String letter in word.characters) {
+      final int from = offset;
+      offset += letter.length;
+      final double strength = letterGlowStrength(progress, index++, count);
+      if (strength <= 0) {
+        continue;
+      }
+
+      for (final TextBox box in layout.getBoxesForSelection(
+        TextSelection(baseOffset: from, extentOffset: offset),
+        boxHeightStyle: ui.BoxHeightStyle.max,
+      )) {
+        final Rect rect = box.toRect();
+        // The glowing letter also rises a little above its word.
+        final double lift = rise + 2 * strength;
+
+        canvas.saveLayer(
+          rect.inflate(14),
+          Paint()
+            ..color = Color.fromRGBO(255, 255, 255, 0.85 * strength)
+            ..imageFilter = ui.ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+        );
+        canvas
+          ..save()
+          ..translate(0, -lift)
+          ..clipRect(rect);
+        bright.paint(canvas, Offset.zero);
+        canvas
+          ..restore()
+          ..restore()
+          ..save()
+          ..translate(0, -lift)
+          ..clipRect(rect);
+        bright.paint(canvas, Offset.zero);
+        canvas.restore();
+      }
     }
   }
 
