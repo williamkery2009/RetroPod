@@ -1,0 +1,10 @@
+[package]
+name = "retropod-extensions"
+version = "0.1.0"
+edition = "2024"
+license = "LGPL-3.0-only"
+[lib]
+crate-type = ["cdylib", "rlib"]
+[dependencies]
+mornye-extensions.workspace = true
+serde_json.workspace = true
