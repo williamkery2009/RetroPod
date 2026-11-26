@@ -1,0 +1,43 @@
+name: Build Test APK
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: 3.44.9
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+
+      - name: Configure repo
+        run: |
+          flutter pub get
+          flutter gen-l10n
+
+      # Without key.properties this is signed with a temporary debug key.
+      - name: Build dev APK
+        run: flutter build apk --release --flavor dev --target=lib/main.dart
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: retropod-dev-apk
+          path: build/app/outputs/flutter-apk/app-dev-release.apk
+          if-no-files-found: error
+          retention-days: 14
