@@ -12,6 +12,7 @@ import 'package:retropod/features/device/widgets/device_frame.dart';
 import 'package:retropod/features/games/screens/brick_game_screen.dart';
 import 'package:retropod/features/games/screens/games_menu_screen.dart';
 import 'package:retropod/features/games/screens/music_quiz_screen.dart';
+import 'package:retropod/features/games/screens/solitaire_screen.dart';
 import 'package:retropod/features/media/models/media_file_model.dart';
 import 'package:retropod/features/media/screens/media_menu_screen.dart';
 import 'package:retropod/features/media/screens/photo_viewer_screen.dart';
@@ -87,6 +88,7 @@ enum Routes {
   extras,
   brick,
   musicQuiz,
+  solitaire,
   media,
   photos,
   photoViewer,
@@ -170,6 +172,8 @@ enum Routes {
         return context.localization.brickGameTitle;
       case musicQuiz:
         return context.localization.musicQuizGameTitle;
+      case solitaire:
+        return 'Solitaire';
       case media:
         return context.localization.mediaMenuTitle;
       case photos:
@@ -670,6 +674,13 @@ final routerProvider = Provider(
                     parentNavigatorKey: rootNavigatorKey,
                     pageBuilder: (context, state) =>
                         const CupertinoPage(child: MusicQuizScreen()),
+                  ),
+                  GoRoute(
+                    path: Routes.solitaire.name,
+                    name: Routes.solitaire.name,
+                    parentNavigatorKey: menuNavigatorKey,
+                    pageBuilder: (context, state) =>
+                        const CupertinoPage(child: SolitaireScreen()),
                   ),
                 ],
               ),
