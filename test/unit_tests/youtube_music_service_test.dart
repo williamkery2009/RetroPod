@@ -123,6 +123,7 @@ void main() {
       return http.Response(
         jsonEncode(searchResponse([songRow('abcdefghijk')])),
         200,
+        headers: {'content-type': 'application/json; charset=utf-8'},
       );
     });
     addTearDown(client.close);
