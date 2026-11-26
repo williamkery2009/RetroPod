@@ -4,7 +4,7 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
 
 env:
@@ -72,3 +72,21 @@ jobs:
           path: build/app/outputs/flutter-apk/app-dev-release.apk
           if-no-files-found: error
           retention-days: 14
+
+      # Artifact downloads need a GitHub login. A rolling pre-release gives a
+      # link that can be opened directly on a phone.
+      - name: Publish dev APK pre-release
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=dev-apk
+          apk=build/app/outputs/flutter-apk/app-dev-release.apk
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "$apk" --clobber
+          else
+            gh release create "$tag" "$apk" \
+              --title "RetroPod dev APK" \
+              --prerelease \
+              --notes "Debug-key build. Allow unknown sources."
+          fi
