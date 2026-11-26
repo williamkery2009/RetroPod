@@ -5,6 +5,8 @@ import 'package:retropod/core/constants/keys.dart';
 import 'package:retropod/core/extensions/build_context_extensions.dart';
 import 'package:retropod/features/device/widgets/device_controls.dart';
 import 'package:retropod/features/device/widgets/device_screen.dart';
+import 'package:retropod/features/now_playing/provider/now_playing_details_provider.dart';
+import 'package:retropod/features/now_playing/widgets/fluid_art_background.dart';
 import 'package:retropod/features/settings/controller/settings_preferences_controller.dart';
 import 'package:retropod/features/settings/models/device_color.dart';
 
@@ -19,8 +21,25 @@ class DeviceFrame extends ConsumerWidget {
       settingsPreferencesControllerProvider.select((e) => e.deviceSkin),
     );
 
+    final (String?, bool) art = ref.watch(
+      nowPlayingDetailsProvider.select(
+        (details) => (
+          details.currentMetadata?.thumbnailPath,
+          details.currentMetadata?.isOnDevice ?? true,
+        ),
+      ),
+    );
+    final (String? thumbnailPath, bool isOnDevice) = art;
+
     final Widget background;
-    if (skin.assetPath == null) {
+    if (skin.assetPath == null && thumbnailPath != null) {
+      // Colors of the current song cover the whole device. A chosen skin
+      // takes priority over this.
+      background = FluidArtBackground(
+        thumbnailPath: thumbnailPath,
+        isOnDevice: isOnDevice,
+      );
+    } else if (skin.assetPath == null) {
       // Use the classic solid or gradient design based on active DeviceColor
       final DeviceColor deviceColor = ref.watch(
         settingsPreferencesControllerProvider.select((e) => e.deviceColor),

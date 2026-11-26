@@ -14,8 +14,8 @@ import 'package:retropod/features/device/services/device_buttons_service_provide
 import 'package:retropod/features/now_playing/provider/now_playing_details_provider.dart';
 import 'package:retropod/features/now_playing/widgets/fluid_art_background.dart';
 import 'package:retropod/features/now_playing/widgets/lyrics_view.dart';
-import 'package:retropod/features/now_playing/widgets/now_playing_bottom_bar.dart';
 import 'package:retropod/features/now_playing/widgets/now_playing_widget.dart';
+import 'package:retropod/features/now_playing/widgets/playback_progress_bar.dart';
 import 'package:retropod/features/now_playing/widgets/rating_bar.dart';
 import 'package:retropod/features/now_playing/widgets/shuffle_segmented_control.dart';
 import 'package:retropod/features/now_playing/widgets/volume_bar.dart';
@@ -418,7 +418,7 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
             ),
           ),
           SizedBox(
-            height: 30,
+            height: 40,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10),
               child: AnimatedSwitcher(
@@ -449,8 +449,8 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
                         controller: _bottomBarPageController,
                         physics: const NeverScrollableScrollPhysics(),
                         children: [
-                          const NowPlayingBottomBar(),
-                          const NowPlayingBottomBar(showScrubber: true),
+                          const PlaybackProgressBar(),
+                          const PlaybackProgressBar(showHandle: true),
                           ShuffleSegmentedControl(
                             isShuffleEnabled: _isShuffleEnabled,
                             onValueChanged: (value) {
@@ -474,7 +474,7 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
         ],
     );
 
