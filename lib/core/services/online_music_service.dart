@@ -145,8 +145,9 @@ class OnlineMusicService {
   Future<String?> findLyrics(MusicMetadata song) async {
     if (!song.isOnDevice ||
         song.trackName == null ||
-        song.getTrackDuration <= 0)
+        song.getTrackDuration <= 0) {
       return null;
+    }
     final data = await _get(
       Uri.https('lrclib.net', '/api/get', {
         'track_name': song.getTrackName,

@@ -98,15 +98,15 @@ class _OnlineMusicScreenState extends ConsumerState<OnlineMusicScreen>
     });
     try {
       final player = ref.read(audioPlayerProvider);
+      final details = ref.read(nowPlayingDetailsProvider.notifier);
       await player.setAudioSources([song.toAudioSource()]);
-      if (!mounted) return;
       await player.setShuffleModeEnabled(false);
-      ref
-          .read(nowPlayingDetailsProvider.notifier)
-          .setNewMetadataList(
-            nowPlayingType: NowPlayingType.online,
-            newMetadataList: [song],
-          );
+      // Keep the playback queue and its metadata in sync even if the user
+      // leaves this screen while the stream is loading.
+      details.setNewMetadataList(
+        nowPlayingType: NowPlayingType.online,
+        newMetadataList: [song],
+      );
       // play() completes when playback ends, not when it starts.
       unawaited(
         player.play().catchError((Object error) {

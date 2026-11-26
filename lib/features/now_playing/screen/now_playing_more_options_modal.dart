@@ -141,18 +141,20 @@ class _NowPlayingMoreOptionsModalState
             // Do not overwrite lyrics edited while the request was running.
             final current = ref.read(nowPlayingDetailsProvider).currentMetadata;
             if (current?.filePath != currentSongMetadata.filePath ||
-                (current?.lyrics?.trim().isNotEmpty ?? false))
+                (current?.lyrics?.trim().isNotEmpty ?? false)) {
               return;
+            }
             await ref
                 .read(nowPlayingDetailsProvider.notifier)
                 .updateMetadata(current!.copyWith(lyrics: lyrics));
             if (mounted) await _showLyricsMessage('Lyrics added to this song.');
           }
         } catch (_) {
-          if (mounted)
+          if (mounted) {
             await _showLyricsMessage(
               'Lyrics service unavailable. Please try again.',
             );
+          }
         } finally {
           if (mounted) setState(() => _findingLyrics = false);
         }
