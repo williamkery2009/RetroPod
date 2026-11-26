@@ -316,7 +316,8 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     // The second singer in a duet sits on the right.
     final bool isRight = line.voice == 2;
     final TextAlign textAlign = isRight ? TextAlign.right : TextAlign.left;
-    final int distance = (index - math.max(_activeLineIndex, 0)).abs();
+    final int focusIndex = _activeLineIndex < 0 ? 0 : _activeLineIndex;
+    final int distance = (index - focusIndex).abs();
     final double blur = isActive || _isBrowsing
         ? 0
         : math.min(distance * 0.8, 3.0);
