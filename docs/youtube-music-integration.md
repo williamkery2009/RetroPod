@@ -1,13 +1,19 @@
 # YouTube Music streaming (Innertube) integration
 
 Status: Kotlin module implemented, not yet wired to a Flutter screen.
-Verification: the code was written against the pinned APIs (NewPipeExtractor
-`v0.27.1` source and Media3 `1.4.1`, the version `just_audio` already resolves),
-every Kotlin file and both Gradle scripts parse cleanly with the tree-sitter
-Kotlin grammar, and the manifest is well-formed XML. It has not been compiled
-or run, because this environment has no JDK, no Android SDK, no Flutter SDK and
-no network access to JitPack/Google Maven. Run `flutter build apk --debug` and
-the device checklist at the end before treating it as done.
+Verification: the module compiles and links into a release APK. The
+`Build Test APK` workflow runs `flutter build apk --release --flavor dev`, which
+exercises Kotlin compilation, JitPack resolution of NewPipeExtractor and its
+nanojson fork, and R8 shrinking against the keep rules below. Behaviour on a
+device is still unproven: run the checklist at the end before treating it as
+done.
+
+Installable build:
+<https://github.com/williamkery2009/RetroPod/releases/download/dev-apk/app-dev-release.apk>
+(the rolling `dev-apk` pre-release, rebuilt from this branch on every push,
+signed with a throwaway debug key, so Android asks for unknown-source
+permission). The same APK is attached to each workflow run as the
+`retropod-dev-apk` artifact.
 
 ## 0. Read this before shipping
 
