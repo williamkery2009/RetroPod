@@ -62,6 +62,49 @@ void main() {
       );
     });
 
+    test('parses word timings and removes tags from the text', () {
+      final line = parseLrcLyrics(
+        '[00:01.00]v1: <00:01.000>one <00:01.500>two<00:02.250>',
+      )!.lines.single;
+
+      expect(line.text, 'one two');
+      expect(line.voice, 1);
+      expect(line.words.map((word) => word.text), ['one ', 'two']);
+      expect(line.words.first.end, const Duration(milliseconds: 1500));
+      expect(line.end, const Duration(milliseconds: 2250));
+    });
+
+    test('keeps syllables joined and reads the singer number', () {
+      final line = parseLrcLyrics(
+        '[00:01.00]v2: <00:01.000>hel<00:01.200>lo<00:01.600>',
+      )!.lines.single;
+
+      expect(line.text, 'hello');
+      expect(line.voice, 2);
+      expect(line.words.length, 2);
+    });
+
+    test('applies offset tag to word timings', () {
+      final line = parseLrcLyrics(
+        '[offset:+500]\n[00:01.00]<00:01.000>one<00:02.000>',
+      )!.lines.single;
+
+      expect(line.words.single.start, const Duration(milliseconds: 1500));
+      expect(line.end, const Duration(milliseconds: 2500));
+    });
+
+    test('reports word progress between its start and end', () {
+      const word = LrcWord(
+        start: Duration(seconds: 1),
+        end: Duration(seconds: 3),
+        text: 'one',
+      );
+
+      expect(word.progressAt(Duration.zero), 0);
+      expect(word.progressAt(const Duration(seconds: 2)), 0.5);
+      expect(word.progressAt(const Duration(seconds: 4)), 1);
+    });
+
     test('getActiveLineIndex returns active line for a position', () {
       final lyrics = parseLrcLyrics('[00:11.12] one\n[00:14.90] two');
       expect(

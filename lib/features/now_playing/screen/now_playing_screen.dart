@@ -402,6 +402,12 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
                             'lyrics-view-${nowPlayingDetails.currentMetadata?.originalSongIndex ?? 0}',
                           ),
                           lyrics: lyrics,
+                          thumbnailPath: nowPlayingDetails
+                              .currentMetadata
+                              ?.thumbnailPath,
+                          isOnDevice:
+                              nowPlayingDetails.currentMetadata?.isOnDevice ??
+                              true,
                           scrollController: _lyricsScrollController,
                         )
                       : NowPlayingWidget(
