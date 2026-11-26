@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:retropod/core/extensions/build_context_extensions.dart';
 import 'package:retropod/core/extensions/go_router_extensions.dart';
 import 'package:retropod/core/services/audio_player_service.dart';
+import 'package:retropod/core/utils/scroll_accelerator.dart';
+import 'package:retropod/core/widgets/index_letter_popup.dart';
 import 'package:retropod/features/device/models/device_action.dart';
 import 'package:retropod/features/device/services/device_buttons_service_provider.dart';
 
@@ -16,7 +18,37 @@ mixin CustomScreen<T extends ConsumerStatefulWidget> on ConsumerState<T> {
   final double displayTileHeight = 30;
   final ScrollController scrollController = ScrollController();
 
+  final ScrollAccelerator _scrollAccelerator = ScrollAccelerator();
+  final IndexLetterPopup _indexLetterPopup = IndexLetterPopup();
+
   void onSelectPressed();
+
+  /// Title of the item at [index], for lists sorted by name. Other lists
+  /// return `null` and show no letter popup.
+  String? indexTitleFor(int index) => null;
+
+  /// Handles one wheel step, moving several items during a fast spin.
+  void _spinWheel({required bool isForward}) {
+    final int step = _scrollAccelerator.stepSize(
+      now: DateTime.now(),
+      isForward: isForward,
+      listLength: displayItems.length + extraDisplayItems,
+    );
+    for (int i = 0; i < step; i++) {
+      if (isForward) {
+        scrollForward();
+      } else {
+        scrollBackward();
+      }
+    }
+
+    if (step > 1) {
+      final String? title = indexTitleFor(selectedDisplayItem);
+      if (title != null) {
+        _indexLetterPopup.show(context, indexLetter(title));
+      }
+    }
+  }
 
   void onSelectLongPress() {}
 
@@ -77,10 +109,10 @@ mixin CustomScreen<T extends ConsumerStatefulWidget> on ConsumerState<T> {
         onSelectLongPress();
         break;
       case DeviceAction.rotateForward:
-        scrollForward();
+        _spinWheel(isForward: true);
         break;
       case DeviceAction.rotateBackward:
-        scrollBackward();
+        _spinWheel(isForward: false);
         break;
       case DeviceAction.seekForward:
         await seekForward();
@@ -107,6 +139,7 @@ mixin CustomScreen<T extends ConsumerStatefulWidget> on ConsumerState<T> {
 
   @override
   void dispose() {
+    _indexLetterPopup.dispose();
     scrollController.dispose();
     super.dispose();
   }

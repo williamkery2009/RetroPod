@@ -29,6 +29,11 @@ class _ArtistsSelectionScreenState extends ConsumerState<ArtistsSelectionScreen>
   @override
   List<String> get displayItems => ref.read(artistNamesProvider);
 
+  // The first row is "All Albums", so names start at index 1.
+  @override
+  String? indexTitleFor(int index) =>
+      index == 0 ? null : displayItems[index - 1];
+
   @override
   void onSelectPressed() => _selectArtist(selectedDisplayItem);
 
