@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
@@ -15,15 +14,11 @@ import 'package:retropod/features/now_playing/widgets/karaoke_line.dart';
 class LyricsView extends ConsumerStatefulWidget {
   final String? lyrics;
   final ScrollController scrollController;
-  final String? thumbnailPath;
-  final bool isOnDevice;
 
   const LyricsView({
     super.key,
     required this.lyrics,
     required this.scrollController,
-    this.thumbnailPath,
-    this.isOnDevice = true,
   });
 
   @override
@@ -200,74 +195,27 @@ class _LyricsViewState extends ConsumerState<LyricsView>
       return const SizedBox.shrink();
     }
 
-    return Padding(
-      padding: const EdgeInsets.only(right: 10),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            _buildBackground(),
-            LayoutBuilder(
-              builder: (context, constraints) => NotificationListener(
-                onNotification: _handleScroll,
-                child: CupertinoScrollbar(
-                  controller: widget.scrollController,
-                  child: SingleChildScrollView(
-                    controller: widget.scrollController,
-                    padding: EdgeInsets.fromLTRB(
-                      12,
-                      _topPadding,
-                      12,
-                      // Room for the last line to scroll up to the top.
-                      _lrcLyrics == null
-                          ? 12
-                          : math.max(0.0, constraints.maxHeight - 80),
-                    ),
-                    child: _lrcLyrics == null
-                        ? _buildPlainText(lyrics)
-                        : _buildSyncedLines(_lrcLyrics!),
-                  ),
-                ),
-              ),
+    return LayoutBuilder(
+      builder: (context, constraints) => NotificationListener(
+        onNotification: _handleScroll,
+        child: CupertinoScrollbar(
+          controller: widget.scrollController,
+          child: SingleChildScrollView(
+            controller: widget.scrollController,
+            padding: EdgeInsets.fromLTRB(
+              2,
+              _topPadding,
+              12,
+              // Room for the last line to scroll up to the top.
+              _lrcLyrics == null
+                  ? 12
+                  : math.max(0.0, constraints.maxHeight - 80),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Heavily blurred, darkened album art.
-  Widget _buildBackground() {
-    const Color fallback = Color(0xFF2A2A2E);
-    final String? path = widget.thumbnailPath;
-    if (path == null) {
-      return const ColoredBox(color: fallback);
-    }
-
-    final ImageProvider image = widget.isOnDevice
-        ? FileImage(File(path))
-        : NetworkImage(path);
-
-    return RepaintBoundary(
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          const ColoredBox(color: fallback),
-          ImageFiltered(
-            imageFilter: ui.ImageFilter.blur(
-              sigmaX: 30,
-              sigmaY: 30,
-              tileMode: TileMode.clamp,
-            ),
-            child: Image(
-              image: image,
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => const SizedBox.shrink(),
-            ),
+            child: _lrcLyrics == null
+                ? _buildPlainText(lyrics)
+                : _buildSyncedLines(_lrcLyrics!),
           ),
-          const ColoredBox(color: Color(0x80000000)),
-        ],
+        ),
       ),
     );
   }

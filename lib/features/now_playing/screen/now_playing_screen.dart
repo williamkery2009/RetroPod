@@ -12,6 +12,7 @@ import 'package:retropod/core/widgets/empty_state_widget.dart';
 import 'package:retropod/features/device/models/device_action.dart';
 import 'package:retropod/features/device/services/device_buttons_service_provider.dart';
 import 'package:retropod/features/now_playing/provider/now_playing_details_provider.dart';
+import 'package:retropod/features/now_playing/widgets/fluid_art_background.dart';
 import 'package:retropod/features/now_playing/widgets/lyrics_view.dart';
 import 'package:retropod/features/now_playing/widgets/now_playing_bottom_bar.dart';
 import 'package:retropod/features/now_playing/widgets/now_playing_widget.dart';
@@ -354,10 +355,16 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
       );
     }
 
-    return CupertinoPageScaffold(
-      child: Column(
+    final String? thumbnailPath =
+        nowPlayingDetails.currentMetadata?.thumbnailPath;
+    final bool showsLyrics =
+        _bottomBarPage == _NowPlayingBottomBarPage.lyrics && hasLyrics;
+    // Lyrics are always white, so they need the dark backdrop even when the
+    // song has no artwork.
+    final bool isImmersive = thumbnailPath != null || showsLyrics;
+
+    final Widget playerBody = Column(
         children: [
-          StatusBar(title: Routes.nowPlaying.title(context)),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
@@ -394,20 +401,12 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
                 padding: const EdgeInsets.only(left: 10),
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 300),
-                  child:
-                      (_bottomBarPage == _NowPlayingBottomBarPage.lyrics &&
-                          hasLyrics)
+                  child: showsLyrics
                       ? LyricsView(
                           key: ValueKey(
                             'lyrics-view-${nowPlayingDetails.currentMetadata?.originalSongIndex ?? 0}',
                           ),
                           lyrics: lyrics,
-                          thumbnailPath: nowPlayingDetails
-                              .currentMetadata
-                              ?.thumbnailPath,
-                          isOnDevice:
-                              nowPlayingDetails.currentMetadata?.isOnDevice ??
-                              true,
                           scrollController: _lyricsScrollController,
                         )
                       : NowPlayingWidget(
@@ -477,6 +476,53 @@ class _NowPlayingScreenState extends ConsumerState<NowPlayingScreen> {
           ),
           const SizedBox(height: 10),
         ],
+    );
+
+    return CupertinoPageScaffold(
+      child: Column(
+        children: [
+          StatusBar(title: Routes.nowPlaying.title(context)),
+          Expanded(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (isImmersive)
+                  FluidArtBackground(
+                    thumbnailPath: thumbnailPath,
+                    isOnDevice:
+                        nowPlayingDetails.currentMetadata?.isOnDevice ?? true,
+                  ),
+                _ImmersiveTheme(isEnabled: isImmersive, child: playerBody),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Switches [child] to light-on-dark colors over the artwork background.
+class _ImmersiveTheme extends StatelessWidget {
+  final bool isEnabled;
+  final Widget child;
+
+  const _ImmersiveTheme({required this.isEnabled, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final CupertinoThemeData theme = CupertinoTheme.of(context);
+
+    // The same widgets are used either way, so toggling keeps child state.
+    return CupertinoTheme(
+      data: isEnabled ? theme.copyWith(brightness: Brightness.dark) : theme,
+      child: Builder(
+        builder: (context) => DefaultTextStyle(
+          style: CupertinoTheme.of(context).textTheme.textStyle.copyWith(
+            color: isEnabled ? CupertinoColors.white : null,
+          ),
+          child: child,
+        ),
       ),
     );
   }
