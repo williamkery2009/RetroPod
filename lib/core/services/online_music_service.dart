@@ -4,12 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:retropod/core/models/music_metadata.dart';
 import 'package:retropod/core/services/youtube_music_service.dart';
+import 'package:retropod/core/services/piped_service.dart';
 
 enum MusicSource {
   itunes('iTunes previews'),
   deezer('Deezer previews'),
   radio('Internet radio'),
-  youtubeMusic('YouTube Music (experimental)');
+  youtubeMusic('YouTube Music (experimental)'),
+  youtubePiped('YouTube Music via Piped');
 
   const MusicSource(this.label);
   final String label;
@@ -23,12 +25,43 @@ final onlineMusicServiceProvider = Provider<OnlineMusicService>((ref) {
 
 /// Uses public provider endpoints, not Mornye's implementation code.
 class OnlineMusicService {
-  OnlineMusicService(this._client);
+  OnlineMusicService(this._client, {YoutubeAudioResolver? resolveYoutubeAudio})
+    : _youtube = YoutubeMusicService(
+        _client,
+        resolveAudio: resolveYoutubeAudio,
+      );
   final http.Client _client;
-  late final YoutubeMusicService _youtube = YoutubeMusicService(_client);
+  final YoutubeMusicService _youtube;
 
-  Future<MusicMetadata> resolveForPlayback(MusicMetadata song) =>
-      _youtube.resolveForPlayback(song);
+  late final PipedService _piped = PipedService(_client);
+
+  Future<MusicMetadata> resolveForPlayback(MusicMetadata song) async {
+    final id = YoutubeMusicService.videoIdFor(song);
+    if (id == null) return song;
+    final pipedOnly =
+        Uri.parse(song.filePath!).queryParameters['provider'] == 'piped';
+    if (!pipedOnly) {
+      try {
+        return await _youtube.resolveForPlayback(song);
+      } catch (_) {
+        // Search and stream extraction are independent. Try the proxy API once.
+      }
+    }
+    final url = await _piped.resolveAudio(id);
+    return song.copyWith(filePath: url.toString());
+  }
+
+  static List<MusicMetadata> _markPiped(List<MusicMetadata> songs) =>
+      songs.map((song) {
+        final uri = Uri.parse(song.filePath!);
+        return song.copyWith(
+          filePath: uri
+              .replace(
+                queryParameters: {...uri.queryParameters, 'provider': 'piped'},
+              )
+              .toString(),
+        );
+      }).toList();
 
   Future<Object?> _get(Uri uri, {bool allowNotFound = false}) async {
     final response = await _client
@@ -46,9 +79,14 @@ class OnlineMusicService {
   Future<List<MusicMetadata>> search(MusicSource source, String query) async {
     final term = query.trim();
     if (term.isEmpty) return [];
-    if (source == MusicSource.youtubeMusic) return _youtube.search(term);
+    if (source == MusicSource.youtubeMusic ||
+        source == MusicSource.youtubePiped) {
+      final songs = await _youtube.search(term);
+      return source == MusicSource.youtubePiped ? _markPiped(songs) : songs;
+    }
     final Uri uri = switch (source) {
-      MusicSource.youtubeMusic => throw StateError('Handled above'),
+      MusicSource.youtubeMusic ||
+      MusicSource.youtubePiped => throw StateError('Handled above'),
       MusicSource.itunes => Uri.https('itunes.apple.com', '/search', {
         'term': term,
         'entity': 'song',
@@ -89,8 +127,10 @@ class OnlineMusicService {
   }
 
   static List<MusicMetadata> parseResults(MusicSource source, Object? data) {
-    if (source == MusicSource.youtubeMusic) {
-      return YoutubeMusicService.parseResults(data);
+    if (source == MusicSource.youtubeMusic ||
+        source == MusicSource.youtubePiped) {
+      final songs = YoutubeMusicService.parseResults(data);
+      return source == MusicSource.youtubePiped ? _markPiped(songs) : songs;
     }
     if (data is Map && data['error'] != null) {
       throw StateError('Provider rejected the search. Try again later.');
@@ -105,7 +145,7 @@ class OnlineMusicService {
     final seen = <String>{};
     for (final row in rows.whereType<Map>()) {
       final url = _https(switch (source) {
-        MusicSource.youtubeMusic => null,
+        MusicSource.youtubeMusic || MusicSource.youtubePiped => null,
         MusicSource.itunes => row['previewUrl'],
         MusicSource.deezer => row['preview'],
         MusicSource.radio => row['url_resolved'],
@@ -126,7 +166,8 @@ class OnlineMusicService {
               'Untitled',
           trackArtistNames: [
             switch (source) {
-              MusicSource.youtubeMusic => 'Unknown Artist',
+              MusicSource.youtubeMusic ||
+              MusicSource.youtubePiped => 'Unknown Artist',
               MusicSource.itunes =>
                 _text(row['artistName']) ?? 'Unknown Artist',
               MusicSource.deezer =>
@@ -139,7 +180,7 @@ class OnlineMusicService {
           albumName: source.label,
           filePath: url,
           thumbnailPath: _https(switch (source) {
-            MusicSource.youtubeMusic => null,
+            MusicSource.youtubeMusic || MusicSource.youtubePiped => null,
             MusicSource.itunes => row['artworkUrl100'],
             MusicSource.deezer => album is Map ? album['cover_medium'] : null,
             MusicSource.radio => row['favicon'],

@@ -1,3 +1,5 @@
+Add selectable Piped audio resolution, an editable HTTPS API server, and one Piped fallback after YouTube extraction failure.
+
 Update the YouTube extraction client for upstream audio-stream 403 failures and show safe, specific playback diagnostics.
 
 Use subtle consistent blur on inactive lyrics and keep active/browsed lines sharp. Add experimental YouTube Music search and fresh audio-stream resolution, plus a separate Kotlin/NewPipe/Media3 architecture guide.

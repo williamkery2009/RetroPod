@@ -7,6 +7,7 @@ import 'package:retropod/core/models/music_metadata.dart';
 import 'package:retropod/core/navigation/routes.dart';
 import 'package:retropod/core/services/audio_player_service.dart';
 import 'package:retropod/core/services/online_music_service.dart';
+import 'package:retropod/core/services/piped_service.dart';
 import 'package:retropod/core/services/youtube_music_service.dart';
 import 'package:retropod/core/services/youtube_playback_error.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -158,6 +159,69 @@ class _OnlineMusicScreenState extends ConsumerState<OnlineMusicScreen>
         ),
       );
 
+  Future<void> _editPipedServer() async {
+    final current = await PipedService.configuredInstance();
+    if (!mounted) return;
+    final controller = TextEditingController(text: current.toString());
+    String? validation;
+    bool saving = false;
+    await showCupertinoDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, update) => CupertinoAlertDialog(
+          title: const Text('Piped API server'),
+          content: Column(
+            children: [
+              const Text(
+                'This server receives the video IDs you play. '
+                'Use an HTTPS Piped API instance. Public servers may be unavailable.',
+              ),
+              CupertinoTextField(
+                controller: controller,
+                keyboardType: TextInputType.url,
+                autocorrect: false,
+                enabled: !saving,
+              ),
+              if (validation != null) Text(validation!),
+            ],
+          ),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: saving
+                  ? null
+                  : () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            CupertinoDialogAction(
+              onPressed: saving
+                  ? null
+                  : () async {
+                      update(() => saving = true);
+                      try {
+                        await PipedService.saveInstance(controller.text);
+                        if (dialogContext.mounted)
+                          Navigator.of(dialogContext).pop();
+                      } catch (_) {
+                        if (dialogContext.mounted)
+                          update(() {
+                            saving = false;
+                            validation =
+                                'Could not save. Enter an HTTPS API URL '
+                                'without credentials, query or fragment.';
+                          });
+                      }
+                    },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+    // Keep the field controller alive until the closing animation finishes.
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    controller.dispose();
+  }
+
   @override
   void dispose() {
     _debounce?.cancel();
@@ -188,7 +252,7 @@ class _OnlineMusicScreenState extends ConsumerState<OnlineMusicScreen>
                   ? 'Select to edit search'
                   : '${song!.getMainArtistName} · ${_source == MusicSource.radio
                         ? 'Live radio'
-                        : _source == MusicSource.youtubeMusic
+                        : (_source == MusicSource.youtubeMusic || _source == MusicSource.youtubePiped)
                         ? 'YouTube Music'
                         : 'Preview only'}';
               return GestureDetector(
@@ -226,6 +290,13 @@ class _OnlineMusicScreenState extends ConsumerState<OnlineMusicScreen>
             },
           ),
         ),
+        if (_source == MusicSource.youtubeMusic ||
+            _source == MusicSource.youtubePiped)
+          CupertinoButton(
+            padding: EdgeInsets.zero,
+            onPressed: _playing ? null : _editPipedServer,
+            child: const Text('Piped server', style: TextStyle(fontSize: 12)),
+          ),
         if (_loading || _playing) const CupertinoActivityIndicator(),
         GestureDetector(
           onTap: () => _search(inputText),

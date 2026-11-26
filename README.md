@@ -244,3 +244,28 @@ See [NOTICE](https://github.com/RchrdAriza/RetroPod/blob/master/NOTICE) for deta
 
 <a href="https://www.flaticon.com/free-icons/ipod" title="ipod icons">Ipod icons created by
 Freepik - Flaticon</a>
+
+### Piped playback
+
+Select **YouTube Music via Piped** in Online Music to resolve audio through Piped
+instead of the on-device extractor. Song search still uses YouTube Music.
+The original YouTube Music source also tries Piped once if extraction fails.
+A player error after a URL has resolved does not automatically retry; select the
+Piped source explicitly in that case.
+
+Tap **Piped server** to save an HTTPS **API** base URL. The initial address is
+`https://pipedapi.kavin.rocks`, from the project's public-instance directory;
+it is not a guaranteed working endpoint. Your selected server receives video IDs
+and supplies temporary audio URLs. No account cookies or credentials are sent.
+
+The adapter uses `/streams/{videoId}`, prefers HTTPS M4A audio, then WebM, and
+rejects video-only streams and malformed responses. Stable YouTube IDs remain in
+the library. Errors distinguish server failure, timeout, and missing audio.
+
+Public-instance probes on 2026-11-26 did not find a working audio result from this
+environment: responses included timeouts, non-JSON pages, HTTP failures and
+YouTube sign-in challenges. Integration tests use mocked HTTP; successful real
+playback still requires an available instance on the device's connection.
+
+References: [Piped API](https://docs.piped.video/docs/api-documentation/) and
+[public instances](https://github.com/TeamPiped/documentation/blob/main/content/docs/public-instances/index.md).

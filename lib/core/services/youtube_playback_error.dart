@@ -1,7 +1,10 @@
 import 'dart:async';
 
+import 'package:retropod/core/services/piped_service.dart';
+
 /// Safe diagnostics: never display signed URLs, cookies or raw server bodies.
 String youtubePlaybackErrorMessage(Object error) {
+  if (error is PipedPlaybackException) return error.message;
   final reason = error.toString().toLowerCase();
   if (error is TimeoutException) {
     return 'YouTube audio resolution timed out (YT_TIMEOUT). '
