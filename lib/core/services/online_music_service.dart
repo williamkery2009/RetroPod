@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:retropod/core/models/music_metadata.dart';
 import 'package:retropod/core/services/audius_service.dart';
+import 'package:retropod/core/services/http_addon_service.dart';
 import 'package:retropod/core/services/jiosaavn_service.dart';
 import 'package:retropod/core/services/mornye_extension_service.dart';
 import 'package:retropod/core/services/piped_service.dart';
@@ -19,7 +20,8 @@ enum MusicSource {
   soundcloud('SoundCloud'),
   jiosaavn('JioSaavn (experimental)'),
   youtubeMusic('YouTube Music (experimental)'),
-  youtubePiped('YouTube Music via Piped');
+  youtubePiped('YouTube Music via Piped'),
+  httpAddon('Custom HTTP add-on');
 
   const MusicSource(this.label);
   final String label;
@@ -47,6 +49,9 @@ class OnlineMusicService {
   late final PipedService _piped = PipedService(_client);
 
   Future<MusicMetadata> resolveForPlayback(MusicMetadata song) async {
+    if (HttpAddonService.handles(song)) {
+      return HttpAddonService(_client).resolve(song);
+    }
     if (MornyeExtensionService.reference(song) != null) {
       return MornyeExtensionService.instance.resolve(song);
     }
@@ -101,6 +106,9 @@ class OnlineMusicService {
   Future<List<MusicMetadata>> search(MusicSource source, String query) async {
     final term = query.trim();
     if (term.isEmpty) return [];
+    if (source == MusicSource.httpAddon) {
+      return HttpAddonService(_client).search(term);
+    }
     if (source == MusicSource.soundcloud) return _soundcloud.search(term);
     if (source == MusicSource.jiosaavn) return _jiosaavn.search(term);
     if (source == MusicSource.youtubeMusic ||
@@ -109,6 +117,7 @@ class OnlineMusicService {
       return source == MusicSource.youtubePiped ? _markPiped(songs) : songs;
     }
     final Uri uri = switch (source) {
+      MusicSource.httpAddon ||
       MusicSource.youtubeMusic ||
       MusicSource.youtubePiped ||
       MusicSource.soundcloud ||
@@ -158,6 +167,9 @@ class OnlineMusicService {
 
   static List<MusicMetadata> parseResults(MusicSource source, Object? data) {
     if (source == MusicSource.audius) return AudiusService.parseResults(data);
+    if (source == MusicSource.httpAddon) {
+      throw const FormatException('Use the configured add-on service');
+    }
     if (source == MusicSource.soundcloud) {
       return SoundCloudService.parseResults(data);
     }
@@ -182,6 +194,7 @@ class OnlineMusicService {
     final seen = <String>{};
     for (final row in rows.whereType<Map>()) {
       final url = _https(switch (source) {
+        MusicSource.httpAddon ||
         MusicSource.youtubeMusic ||
         MusicSource.youtubePiped ||
         MusicSource.audius ||
@@ -207,6 +220,7 @@ class OnlineMusicService {
               'Untitled',
           trackArtistNames: [
             switch (source) {
+              MusicSource.httpAddon ||
               MusicSource.youtubeMusic ||
               MusicSource.youtubePiped ||
               MusicSource.audius ||
@@ -224,6 +238,7 @@ class OnlineMusicService {
           albumName: source.label,
           filePath: url,
           thumbnailPath: _https(switch (source) {
+            MusicSource.httpAddon ||
             MusicSource.youtubeMusic ||
             MusicSource.youtubePiped ||
             MusicSource.audius ||

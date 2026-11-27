@@ -28,7 +28,8 @@ Piped fallback, without credentials.
 ## Session handling
 
 Passwords are entered only into Google's page. No JavaScript bridge is exposed.
-Navigation is limited to named HTTPS Google/YouTube hosts; session configuration
+Navigation is limited to named HTTPS Google/YouTube hosts, including the
+YouTube account handoff and Google India sign-in hosts; session configuration
 is read only on the exact YouTube Music origin. Session cookies remain native.
 The saved session is AES-GCM encrypted using Android Keystore and stored under
 noBackupFilesDir. WebView storage/cookies are cleared after the sign-in dialog
@@ -43,3 +44,9 @@ Unit tests cover session lifecycle channel operations, credential-free resolver
 arguments, signed-in resolver selection, safe errors and stream-host validation.
 An APK compile and device testing are still required for the WebView interaction
 and real authenticated playback; mocked tests do not prove either works.
+
+Sign-in recovery now includes Start over, page/certificate errors, a 30-second
+slow-page notice and a 10-second timeout for reading the account configuration.
+First-party session cookies are recognized. These changes address silent
+redirect rejection and indefinite account-check UI; they do not bypass Google
+verification or establish that every device can sign in.

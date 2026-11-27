@@ -1,3 +1,14 @@
+## Unreleased — custom add-on and sign-in recovery
+
+- Add a configurable Lastwave-format HTTP add-on with manifest validation,
+  encrypted endpoint storage, public search and direct HTTPS stream resolution.
+  The LastWave Addons homepage opens for personal-account setup; it is not
+  treated as an anonymous API. Encrypted/hybrid streams and private client
+  signatures remain unsupported, and live provider playback is unverified.
+- Allow trusted YouTube account and Google India sign-in redirects; recognize
+  first-party session cookies. Show page/certificate errors, a slow-page notice,
+  a bounded account check and Start over instead of silently blocking redirects.
+
 ## Unreleased — YouTube account sign-in
 
 - Add experimental Android YouTube account sign-in and local sign-out.

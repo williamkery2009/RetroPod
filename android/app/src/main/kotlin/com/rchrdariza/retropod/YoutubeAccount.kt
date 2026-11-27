@@ -117,8 +117,7 @@ object YoutubeAccount {
     }
 
     // Restrict top-level navigation; no JavaScript interface and no TLS overrides.
-    private fun allowed(uri: Uri): Boolean = uri.scheme == "https" && uri.port in listOf(-1, 443) &&
-        uri.userInfo == null && uri.host in setOf("music.youtube.com", "www.youtube.com", "accounts.google.com", "consent.youtube.com", "consent.google.com")
+
 
     @Suppress("SetJavaScriptEnabled")
     private fun signIn(activity: Activity, result: MethodChannel.Result) {
@@ -144,17 +143,57 @@ object YoutubeAccount {
         }
         val cookies = CookieManager.getInstance()
         cookies.setAcceptCookie(true)
-        cookies.setAcceptThirdPartyCookies(web, false)
+        cookies.setAcceptThirdPartyCookies(web, true)
+        var rendererGone = false
         var saved = false
         var closing = false
         var saving = false
+        var attempt = 0
+        val loginHandler = Handler(Looper.getMainLooper())
+        val slowPage = Runnable {
+            if (!closing && !saving) note.text = "The page is taking a long time. Finish any Google verification, tap Return to YouTube Music, or Start over."
+        }
         val use = Button(activity).apply { text = "Use account" }
         web.webViewClient = object : WebViewClient() {
-            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean = !allowed(request.url)
+            private fun blocked(uri: Uri): Boolean {
+                if (YoutubeSignInPolicy.allows(uri.toString())) return false
+                note.text = "Sign-in stopped at an unsupported page (${uri.host ?: "unknown host"}). Use Start over; tap Start over to retry."
+                return true
+            }
+            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean = blocked(request.url)
             @Deprecated("Legacy navigation")
-            override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean = !allowed(Uri.parse(url))
-            override fun onPageFinished(view: WebView, url: String) {
+            override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean = blocked(Uri.parse(url))
+            override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
                 address.text = Uri.parse(url).host ?: ""
+                loginHandler.removeCallbacks(slowPage)
+                loginHandler.postDelayed(slowPage, 30000)
+            }
+            override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
+                address.text = Uri.parse(url).host ?: ""
+                if (Uri.parse(url).host == "music.youtube.com" && YoutubeSignInPolicy.hasSession(cookies.getCookie(ORIGIN) ?: "")) {
+                    note.text = "YouTube Music has session cookies. Tap Use account to check and save this session."
+                }
+            }
+            override fun onPageFinished(view: WebView, url: String) {
+                loginHandler.removeCallbacks(slowPage)
+                address.text = Uri.parse(url).host ?: ""
+            }
+            override fun onReceivedError(view: WebView, request: WebResourceRequest, error: android.webkit.WebResourceError) {
+                if (request.isForMainFrame) {
+                    loginHandler.removeCallbacks(slowPage)
+                    note.text = "The sign-in page could not load. Check the connection or tap Start over."
+                }
+            }
+            override fun onReceivedSslError(view: WebView, handler: android.webkit.SslErrorHandler, error: android.net.http.SslError) {
+                handler.cancel()
+                loginHandler.removeCallbacks(slowPage)
+                note.text = "The page certificate could not be verified. Check the phone's date and time, then Start over."
+            }
+            override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
+                rendererGone = true
+                android.widget.Toast.makeText(activity, "The sign-in browser stopped. Reopen YouTube account to retry.", android.widget.Toast.LENGTH_LONG).show()
+                dialog.dismiss()
+                return true
             }
         }
         use.setOnClickListener {
@@ -165,6 +204,15 @@ object YoutubeAccount {
             }
             saving = true
             use.isEnabled = false
+            val currentAttempt = ++attempt
+            val checkTimeout = Runnable {
+                if (!closing && attempt == currentAttempt && saving) {
+                    attempt++
+                    saving = false; use.isEnabled = true
+                    note.text = "The page did not answer the account check. Tap Return to YouTube Music and try Use account again, or Start over."
+                }
+            }
+            loginHandler.postDelayed(checkTimeout, 10000)
             // The expression also checks its own origin to prevent navigation races.
             web.evaluateJavascript("""(() => {
                 if (location.origin !== 'https://music.youtube.com' || !window.ytcfg) return null;
@@ -173,12 +221,13 @@ object YoutubeAccount {
                     visitor: ytcfg.get('VISITOR_DATA'),
                     authUser: String(ytcfg.get('SESSION_INDEX') || '0')};
             })()""".trimIndent()) { raw ->
-                if (closing) return@evaluateJavascript
+                if (closing || currentAttempt != attempt) return@evaluateJavascript
+                loginHandler.removeCallbacks(checkTimeout)
                 try {
                     val config = JSONTokener(raw).nextValue() as? JSONObject
                     val cookie = cookies.getCookie(ORIGIN) ?: ""
                     if (config == null || !config.optBoolean("loggedIn") || config.optString("version").isBlank() ||
-                        !cookie.split(';').any { it.trim().startsWith("SAPISID=") || it.trim().startsWith("__Secure-3PAPISID=") }) {
+                        !YoutubeSignInPolicy.hasSession(cookie)) {
                         note.text = "No signed-in YouTube Music session detected. Complete Google's sign-in first. If Google blocks this browser, this method is unavailable."
                         saving = false; use.isEnabled = true
                         return@evaluateJavascript
@@ -205,13 +254,26 @@ object YoutubeAccount {
                 }
             }
         }
+        val restart = Button(activity).apply {
+            text = "Start over"
+            setOnClickListener {
+                if (!saving) {
+                    attempt++
+                    loginHandler.removeCallbacksAndMessages(null)
+                    web.stopLoading(); web.clearCache(true); web.clearHistory()
+                    WebStorage.getInstance().deleteAllData()
+                    note.text = "Starting a fresh Google sign-in."
+                    cookies.removeAllCookies { if (!closing) web.loadUrl(ORIGIN) }
+                }
+            }
+        }
         val home = Button(activity).apply { text = "Return to YouTube Music"; setOnClickListener { if (!saving) web.loadUrl(ORIGIN) } }
         val cancel = Button(activity).apply { text = "Cancel"; setOnClickListener { dialog.dismiss() } }
         layout.addView(note); layout.addView(address)
         layout.addView(web, LinearLayout.LayoutParams(-1, 0, 1f))
         val buttons = LinearLayout(activity)
         buttons.addView(use); buttons.addView(cancel)
-        layout.addView(home); layout.addView(buttons)
+        layout.addView(home); layout.addView(restart); layout.addView(buttons)
         dialog.setContentView(layout)
         dialog.setOnKeyListener { _, code, event ->
             if (code == android.view.KeyEvent.KEYCODE_BACK) {
@@ -222,7 +284,10 @@ object YoutubeAccount {
         dialog.setOnDismissListener {
             activeDialog = null
             closing = true
-            web.stopLoading(); web.loadUrl("about:blank"); web.clearHistory(); web.clearCache(true); web.destroy()
+            attempt++
+            loginHandler.removeCallbacksAndMessages(null)
+            if (!rendererGone) { web.stopLoading(); web.loadUrl("about:blank"); web.clearHistory(); web.clearCache(true) }
+            web.destroy()
             WebStorage.getInstance().deleteAllData()
             cookies.removeAllCookies {
                 cookies.flush()
@@ -245,7 +310,7 @@ object YoutubeAccount {
             val pair = it.trim().split('=', limit = 2)
             if (pair.size == 2) pair[0] to pair[1] else null
         }.toMap()
-        val sapisid = values["SAPISID"] ?: values["__Secure-3PAPISID"] ?: throw Failure("YT_SESSION_EXPIRED")
+        val sapisid = values["SAPISID"] ?: values["__Secure-3PAPISID"] ?: values["__Secure-1PAPISID"] ?: throw Failure("YT_SESSION_EXPIRED")
         val timestamp = System.currentTimeMillis() / 1000
         val hash = MessageDigest.getInstance("SHA-1").digest("$timestamp $sapisid $ORIGIN".toByteArray())
             .joinToString("") { "%02x".format(it.toInt() and 255) }

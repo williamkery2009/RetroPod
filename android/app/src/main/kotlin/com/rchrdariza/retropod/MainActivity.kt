@@ -11,6 +11,7 @@ class MainActivity : AudioServiceActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        AddonSettings.attach(this, flutterEngine.dartExecutor.binaryMessenger)
         YoutubeAccount.attach(this, flutterEngine.dartExecutor.binaryMessenger)
         MornyeExtensions.attach(this, flutterEngine.dartExecutor.binaryMessenger)
     }

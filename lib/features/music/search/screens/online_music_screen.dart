@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:retropod/core/models/music_metadata.dart';
 import 'package:retropod/core/navigation/routes.dart';
 import 'package:retropod/core/services/audio_player_service.dart';
+import 'package:retropod/core/services/http_addon_service.dart';
 import 'package:retropod/core/services/jiosaavn_service.dart';
 import 'package:retropod/core/services/mornye_extension_service.dart';
 import 'package:retropod/core/services/online_music_service.dart';
@@ -16,6 +17,7 @@ import 'package:retropod/core/services/youtube_music_service.dart';
 import 'package:retropod/core/services/youtube_playback_error.dart';
 import 'package:retropod/core/widgets/input_text_bar.dart';
 import 'package:retropod/features/custom_screen_elements/custom_input_text_screen.dart';
+import 'package:retropod/features/music/search/screens/http_addon_setup_screen.dart';
 import 'package:retropod/features/music/search/screens/mornye_extensions_screen.dart';
 import 'package:retropod/features/now_playing/models/now_playing_model.dart';
 import 'package:retropod/features/now_playing/provider/now_playing_details_provider.dart';
@@ -142,7 +144,9 @@ class _OnlineMusicScreenState extends ConsumerState<OnlineMusicScreen>
         if (!mounted || request != _request) return;
         setState(() {
           _loading = false;
-          _message = error is MornyeExtensionException
+          _message = error is HttpAddonException
+              ? error.message
+              : error is MornyeExtensionException
               ? error.message
               : error is JioSaavnException
               ? error.message
@@ -212,7 +216,9 @@ class _OnlineMusicScreenState extends ConsumerState<OnlineMusicScreen>
         builder: (context) => CupertinoAlertDialog(
           title: const Text('Unable to play'),
           content: Text(
-            error is MornyeExtensionException
+            error is HttpAddonException
+                ? error.message
+                : error is MornyeExtensionException
                 ? error.message
                 : error is SoundCloudException
                 ? error.message
@@ -354,6 +360,8 @@ class _OnlineMusicScreenState extends ConsumerState<OnlineMusicScreen>
                         ? 'Audius · uploader'
                         : _source == MusicSource.soundcloud
                         ? 'SoundCloud · uploader'
+                        : _source == MusicSource.httpAddon
+                        ? 'Custom add-on'
                         : _source == MusicSource.jiosaavn
                         ? 'JioSaavn'
                         : 'Preview only'}';
@@ -420,6 +428,31 @@ class _OnlineMusicScreenState extends ConsumerState<OnlineMusicScreen>
               'JioSaavn server',
               style: TextStyle(fontSize: 12),
             ),
+          ),
+        if (MornyeExtensionService.supported)
+          CupertinoButton(
+            padding: EdgeInsets.zero,
+            onPressed: _playing
+                ? null
+                : () async {
+                    final selected =
+                        await Navigator.of(
+                          context,
+                          rootNavigator: true,
+                        ).push<bool>(
+                          CupertinoPageRoute(
+                            builder: (_) => const HttpAddonSetupScreen(),
+                          ),
+                        );
+                    if (selected == true && mounted) {
+                      setState(() {
+                        _extension = null;
+                        _source = MusicSource.httpAddon;
+                      });
+                      _search(inputText);
+                    }
+                  },
+            child: const Text('Custom add-on', style: TextStyle(fontSize: 12)),
           ),
         if (MornyeExtensionService.supported)
           CupertinoButton(

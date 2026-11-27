@@ -95,6 +95,7 @@ flutter {
 
 // Mornye's QuickJS host and bounded audio conversion commands.
 dependencies {
+    testImplementation("junit:junit:4.13.2")
     implementation("net.java.dev.jna:jna:5.19.1@aar")
     implementation("com.antonkarpenko:ffmpeg-kit-audio:2.3.0")
 }
