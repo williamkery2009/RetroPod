@@ -9,8 +9,10 @@ import 'package:retropod/core/services/youtube_music_service.dart';
 import 'package:retropod/core/services/online_music_service.dart';
 import 'package:retropod/core/services/youtube_playback_error.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   test(
     'failed fallback preserves direct verification failure safely',
     () async {
