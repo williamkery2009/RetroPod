@@ -186,7 +186,7 @@ object YoutubeAccount {
                     config.put("cookie", cookie).put("userAgent", web.settings.userAgentString)
                     worker.execute {
                         try {
-                            // Finish persistence before allowing cancellation/sign-out.
+                            // A cancelled or destroyed dialog discards this pending save.
                             save(activity, config)
                             main.post {
                                 if (closing) worker.execute { sessionFile(activity).delete() }
@@ -206,7 +206,7 @@ object YoutubeAccount {
             }
         }
         val home = Button(activity).apply { text = "Return to YouTube Music"; setOnClickListener { if (!saving) web.loadUrl(ORIGIN) } }
-        val cancel = Button(activity).apply { text = "Cancel"; setOnClickListener { if (!saving) dialog.dismiss() } }
+        val cancel = Button(activity).apply { text = "Cancel"; setOnClickListener { dialog.dismiss() } }
         layout.addView(note); layout.addView(address)
         layout.addView(web, LinearLayout.LayoutParams(-1, 0, 1f))
         val buttons = LinearLayout(activity)
@@ -215,7 +215,7 @@ object YoutubeAccount {
         dialog.setContentView(layout)
         dialog.setOnKeyListener { _, code, event ->
             if (code == android.view.KeyEvent.KEYCODE_BACK) {
-                if (!saving && event.action == android.view.KeyEvent.ACTION_UP) dialog.dismiss()
+                if (event.action == android.view.KeyEvent.ACTION_UP) dialog.dismiss()
                 true
             } else false
         }

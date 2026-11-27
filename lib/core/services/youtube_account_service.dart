@@ -26,9 +26,9 @@ class YoutubeAccountException implements Exception {
 
 /// Cookies remain in the native Android component, never in Dart or preferences.
 class YoutubeAccountService {
-  const YoutubeAccountService({
-    MethodChannel channel = const MethodChannel('retropod/youtube_account'),
-  }) : _channel = channel;
+  const YoutubeAccountService([
+    this._channel = const MethodChannel('retropod/youtube_account'),
+  ]);
 
   final MethodChannel _channel;
   static const instance = YoutubeAccountService();

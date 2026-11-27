@@ -48,7 +48,7 @@ class _OnlineMusicScreenState extends ConsumerState<OnlineMusicScreen>
   List<MusicMetadata> get displayItems => _results;
 
   Future<void> _youtubeAccount() async {
-    final account = YoutubeAccountService.instance;
+    const account = YoutubeAccountService.instance;
     try {
       final signedIn = await account.hasSession();
       if (!mounted) return;
@@ -79,12 +79,13 @@ class _OnlineMusicScreenState extends ConsumerState<OnlineMusicScreen>
         if (mounted) setState(() => _message = 'YouTube session removed.');
       } else {
         final saved = await account.signIn();
-        if (mounted)
+        if (mounted) {
           setState(
             () => _message = saved
                 ? 'YouTube session saved. Select a track to test playback.'
                 : 'YouTube sign-in cancelled.',
           );
+        }
       }
     } catch (error) {
       if (!mounted) return;

@@ -39,7 +39,7 @@ void main() {
         }
         throw StateError('Unexpected account operation');
       });
-      const service = YoutubeAccountService();
+      const service = YoutubeAccountService.instance;
       expect(await service.hasSession(), isFalse);
       expect(await service.signIn(), isTrue);
       expect(await service.hasSession(), isTrue);
