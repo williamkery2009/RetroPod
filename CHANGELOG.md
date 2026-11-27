@@ -1,3 +1,12 @@
+## Unreleased — YouTube account sign-in
+
+- Add experimental Android YouTube account sign-in and local sign-out.
+- Encrypt the saved session with Android Keystore in non-backup storage;
+  credentials stay native and are never passed to Piped or extensions.
+- Try the saved web session before anonymous extraction; report rejected
+  sessions and unsupported stream formats separately. Embedded Google sign-in
+  and authenticated playback still require device verification.
+
 ## Unreleased — Mornye extension packages
 
 - Fix string-valued extension setting choices (including YouTube format and

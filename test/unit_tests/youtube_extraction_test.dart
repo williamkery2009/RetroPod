@@ -88,6 +88,7 @@ void main() {
       addTearDown(searchClient.close);
       final service = YoutubeMusicService(
         searchClient,
+        resolveAccountAudio: (_) async => null,
         createExtractor: () => YoutubeExplode(httpClient: extractorHttp),
       );
       final song = MusicMetadata(
@@ -124,6 +125,7 @@ void main() {
     addTearDown(searchClient.close);
     final service = YoutubeMusicService(
       searchClient,
+      resolveAccountAudio: (_) async => null,
       createExtractor: () => YoutubeExplode(httpClient: extractorHttp),
     );
     await expectLater(

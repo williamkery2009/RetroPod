@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:retropod/core/services/piped_service.dart';
+import 'package:retropod/core/services/youtube_account_service.dart';
 
 class YoutubePlaybackFailure implements Exception {
   const YoutubePlaybackFailure(this.directError, this.fallbackError);
@@ -17,6 +18,7 @@ String youtubePlaybackErrorMessage(Object error) {
     return '${youtubePlaybackErrorMessage(error.directError)}\n\n'
         'Piped fallback: ${youtubePlaybackErrorMessage(error.fallbackError)}';
   }
+  if (error is YoutubeAccountException) return error.toString();
   if (error is PipedPlaybackException) return error.message;
   final reason = error.toString().toLowerCase();
   if (error is TimeoutException) {
@@ -27,7 +29,7 @@ String youtubePlaybackErrorMessage(Object error) {
       reason.contains('not a bot') ||
       reason.contains('login_required')) {
     return 'YouTube requires verification on this connection (YT_SIGN_IN). '
-        'Anonymous playback is unavailable. Open this track in YouTube Music.';
+        'Try YouTube account in Online Music, or open YouTube Music.';
   }
   if (reason.contains('403') || reason.contains('forbidden')) {
     return 'YouTube rejected the audio stream (YT_403). '

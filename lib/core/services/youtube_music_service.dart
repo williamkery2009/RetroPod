@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:retropod/core/models/music_metadata.dart';
+import 'package:retropod/core/services/youtube_account_service.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
 typedef YoutubeAudioResolver = Future<Uri> Function(String videoId);
@@ -13,10 +14,19 @@ class YoutubeMusicService {
     this._client, {
     YoutubeAudioResolver? resolveAudio,
     YoutubeExplode Function()? createExtractor,
+    Future<Uri?> Function(String)? resolveAccountAudio,
   }) : _resolveAudio =
            resolveAudio ??
-           ((id) =>
-               _resolvePublicAudio(id, createExtractor ?? YoutubeExplode.new));
+           ((id) async {
+             final authenticated =
+                 await (resolveAccountAudio ??
+                     YoutubeAccountService.instance.resolve)(id);
+             if (authenticated != null) return authenticated;
+             return _resolvePublicAudio(
+               id,
+               createExtractor ?? YoutubeExplode.new,
+             );
+           });
 
   final http.Client _client;
   final YoutubeAudioResolver _resolveAudio;

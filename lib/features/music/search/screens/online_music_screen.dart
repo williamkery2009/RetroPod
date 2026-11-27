@@ -11,6 +11,7 @@ import 'package:retropod/core/services/mornye_extension_service.dart';
 import 'package:retropod/core/services/online_music_service.dart';
 import 'package:retropod/core/services/piped_service.dart';
 import 'package:retropod/core/services/soundcloud_service.dart';
+import 'package:retropod/core/services/youtube_account_service.dart';
 import 'package:retropod/core/services/youtube_music_service.dart';
 import 'package:retropod/core/services/youtube_playback_error.dart';
 import 'package:retropod/core/widgets/input_text_bar.dart';
@@ -45,6 +46,67 @@ class _OnlineMusicScreenState extends ConsumerState<OnlineMusicScreen>
   int get extraDisplayItems => 2;
   @override
   List<MusicMetadata> get displayItems => _results;
+
+  Future<void> _youtubeAccount() async {
+    final account = YoutubeAccountService.instance;
+    try {
+      final signedIn = await account.hasSession();
+      if (!mounted) return;
+      final action = await showCupertinoDialog<String>(
+        context: context,
+        builder: (context) => CupertinoAlertDialog(
+          title: Text(signedIn ? 'YouTube session saved' : 'YouTube account'),
+          content: const Text(
+            'Experimental Android sign-in for the built-in YouTube provider. '
+            'Your session stays on this device and is not shared with Piped '
+            'or extensions. Google may block sign-in or audio playback.',
+          ),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            CupertinoDialogAction(
+              onPressed: () => Navigator.pop(context, signedIn ? 'out' : 'in'),
+              child: Text(signedIn ? 'Sign out' : 'Sign in'),
+            ),
+          ],
+        ),
+      );
+      if (action == null) return;
+      if (action == 'out') {
+        await account.signOut();
+        if (mounted) setState(() => _message = 'YouTube session removed.');
+      } else {
+        final saved = await account.signIn();
+        if (mounted)
+          setState(
+            () => _message = saved
+                ? 'YouTube session saved. Select a track to test playback.'
+                : 'YouTube sign-in cancelled.',
+          );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      await showCupertinoDialog<void>(
+        context: context,
+        builder: (context) => CupertinoAlertDialog(
+          title: const Text('YouTube account'),
+          content: Text(
+            error is YoutubeAccountException
+                ? error.toString()
+                : 'Could not open YouTube account settings.',
+          ),
+          actions: [
+            CupertinoDialogAction(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
 
   void _search(String value) {
     _debounce?.cancel();
@@ -329,6 +391,17 @@ class _OnlineMusicScreenState extends ConsumerState<OnlineMusicScreen>
             },
           ),
         ),
+        if (_extension == null &&
+            _source == MusicSource.youtubeMusic &&
+            YoutubeAccountService.supported)
+          CupertinoButton(
+            padding: EdgeInsets.zero,
+            onPressed: _playing ? null : _youtubeAccount,
+            child: const Text(
+              'YouTube account',
+              style: TextStyle(fontSize: 12),
+            ),
+          ),
         if (_source == MusicSource.youtubeMusic ||
             _source == MusicSource.youtubePiped)
           CupertinoButton(
