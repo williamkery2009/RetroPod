@@ -4,6 +4,33 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:retropod/core/services/mornye_extension_service.dart';
 
 void main() {
+  test('normalizes string and object manifest choices', () {
+    expect(
+      MornyeExtensionService.settingOptions([
+        'opus',
+        {'value': 'm4a', 'label': 'AAC'},
+        null,
+        {},
+        42,
+      ]),
+      [
+        {'value': 'opus', 'label': 'opus'},
+        {'value': 'm4a', 'label': 'AAC'},
+      ],
+    );
+    expect(MornyeExtensionService.settingOptions(null), isEmpty);
+  });
+
+  test('known native failures do not display provider response bodies', () {
+    final message = MornyeExtensionService.errorMessage(
+      'EXT_AUTH',
+      fallback: 'Cookie: secret',
+    );
+    expect(message, contains('EXT_AUTH'));
+    expect(message, contains('sign-in'));
+    expect(message, isNot(contains('secret')));
+  });
+
   TestWidgetsFlutterBinding.ensureInitialized();
   const channel = MethodChannel('test/mornye');
   final messenger =

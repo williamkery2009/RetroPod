@@ -2,8 +2,21 @@ import 'dart:async';
 
 import 'package:retropod/core/services/piped_service.dart';
 
+class YoutubePlaybackFailure implements Exception {
+  const YoutubePlaybackFailure(this.directError, this.fallbackError);
+  final Object directError;
+  final Object fallbackError;
+
+  @override
+  String toString() => 'YouTube and Piped audio resolution failed.';
+}
+
 /// Safe diagnostics: never display signed URLs, cookies or raw server bodies.
 String youtubePlaybackErrorMessage(Object error) {
+  if (error is YoutubePlaybackFailure) {
+    return '${youtubePlaybackErrorMessage(error.directError)}\n\n'
+        'Piped fallback: ${youtubePlaybackErrorMessage(error.fallbackError)}';
+  }
   if (error is PipedPlaybackException) return error.message;
   final reason = error.toString().toLowerCase();
   if (error is TimeoutException) {

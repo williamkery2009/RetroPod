@@ -9,6 +9,7 @@ import 'package:retropod/core/services/mornye_extension_service.dart';
 import 'package:retropod/core/services/piped_service.dart';
 import 'package:retropod/core/services/soundcloud_service.dart';
 import 'package:retropod/core/services/youtube_music_service.dart';
+import 'package:retropod/core/services/youtube_playback_error.dart';
 
 enum MusicSource {
   itunes('iTunes previews'),
@@ -55,15 +56,21 @@ class OnlineMusicService {
     if (id == null) return song;
     final pipedOnly =
         Uri.parse(song.filePath!).queryParameters['provider'] == 'piped';
+    Object? directError;
     if (!pipedOnly) {
       try {
         return await _youtube.resolveForPlayback(song);
-      } catch (_) {
-        // Search and stream extraction are independent. Try the proxy API once.
+      } catch (error) {
+        directError = error;
       }
     }
-    final url = await _piped.resolveAudio(id);
-    return song.copyWith(filePath: url.toString());
+    try {
+      final url = await _piped.resolveAudio(id);
+      return song.copyWith(filePath: url.toString());
+    } catch (error) {
+      if (directError != null) throw YoutubePlaybackFailure(directError, error);
+      rethrow;
+    }
   }
 
   static List<MusicMetadata> _markPiped(List<MusicMetadata> songs) =>

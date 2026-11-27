@@ -344,7 +344,7 @@ class _ExtensionSettingsState extends State<_ExtensionSettings> {
         ],
       );
     }
-    if (field['type'] == 'action') {
+    if (field['type'] == 'action' || field['type'] == 'button') {
       return Text('$label: extension actions are not supported yet.');
     }
     if (field['options'] is List && (field['options'] as List).isNotEmpty) {
@@ -358,7 +358,9 @@ class _ExtensionSettingsState extends State<_ExtensionSettings> {
                     title: Text(label),
                     actions: [
                       for (final option
-                          in (field['options'] as List).whereType<Map>())
+                          in MornyeExtensionService.settingOptions(
+                            field['options'],
+                          ))
                         CupertinoActionSheetAction(
                           onPressed: () =>
                               Navigator.pop(context, option['value']),

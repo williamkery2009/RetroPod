@@ -30,6 +30,7 @@ import javax.net.ssl.HttpsURLConnection
 
 /** Runtime is process-owned; channel operations never execute on the UI thread. */
 object MornyeExtensions {
+    private class ProviderFailure(val code: String) : Exception()
     interface Bridge : Library {
         fun rp_call(request: String): Pointer
         fun rp_free(value: Pointer)
@@ -50,6 +51,8 @@ object MornyeExtensions {
                     val request = JSONObject(call.arguments as? String ?: "{}")
                     val value = handle(app, call.method, request)
                     main.post { result.success(JSONObject().put("value", value ?: JSONObject.NULL).toString()) }
+                } catch (e: ProviderFailure) {
+                    main.post { result.error(e.code, null, null) }
                 } catch (e: Exception) {
                     // Native errors may contain provider credentials/URLs: never forward them.
                     main.post { result.error("extension_failed", "Extension operation failed. Check its settings, compatibility and network connection.", null) }
@@ -62,7 +65,7 @@ object MornyeExtensions {
     private fun native(request: JSONObject): Any? {
         val pointer = bridge.rp_call(request.toString())
         val response = try { JSONObject(pointer.getString(0, "UTF-8")) } finally { bridge.rp_free(pointer) }
-        if (response.has("error")) throw IllegalStateException("Extension runtime rejected the operation")
+        if (response.has("error")) throw ProviderFailure(response.optString("error", "EXT_FAILED"))
         return response.opt("value").takeUnless { it == JSONObject.NULL }
     }
     private fun initialize(context: Context) {
@@ -154,10 +157,11 @@ object MornyeExtensions {
                 val output = File(audio, "${UUID.randomUUID()}.m4a")
                 request.put("path",output.path).put("itemId",UUID.randomUUID().toString()).put("op","download")
                 val response = native(request) as JSONObject
-                require(response.optBoolean("success") && !response.has("decryption") && response.optString("decryption_key").isEmpty())
+                if (!response.optBoolean("success")) throw ProviderFailure("EXT_FAILED")
+                if (response.has("decryption") || response.optString("decryption_key").isNotEmpty()) throw ProviderFailure("EXT_FINALIZATION")
                 val reported = response.optString("file_path").ifEmpty { response.optString("output_path").ifEmpty { output.path } }
                 val file = File(reported).canonicalFile
-                require(file.path.startsWith(File(root,"audio").canonicalPath + File.separator) && file.isFile && file.length() > 0)
+                if (!file.path.startsWith(File(root,"audio").canonicalPath + File.separator) || !file.isFile || file.length() == 0L) throw ProviderFailure("EXT_NO_FILE")
                 return file.toURI().toString()
             }
             "installed", "remove", "enable", "settings", "saveSettings", "search" -> {

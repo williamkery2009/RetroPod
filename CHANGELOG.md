@@ -1,5 +1,12 @@
 ## Unreleased — Mornye extension packages
 
+- Fix string-valued extension setting choices (including YouTube format and
+  country); identify unsupported button actions instead of rendering text fields.
+- Preserve both YouTube and Piped failure causes; show HTTP status for proxy
+  failures and safe categorized extension diagnostics without server bodies.
+- These fixes do not provide browser sign-in, Mornye session verification or
+  restore unavailable upstream servers.
+
 - Preserve the updated base-branch lyric rendering when resolving the merge.
 
 - Add Android `.sflx` registry installation/update, permission review, settings,

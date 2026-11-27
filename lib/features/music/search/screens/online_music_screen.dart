@@ -75,12 +75,14 @@ class _OnlineMusicScreenState extends ConsumerState<OnlineMusicScreen>
               ? 'No playable results. Try another search or source.'
               : '${results.length} results';
         });
-      } catch (_) {
+      } catch (error) {
         if (!mounted || request != _request) return;
         setState(() {
           _loading = false;
-          _message = source == MusicSource.jiosaavn
-              ? 'JioSaavn unavailable. Try changing JioSaavn server.'
+          _message = error is MornyeExtensionException
+              ? error.message
+              : error is JioSaavnException
+              ? error.message
               : 'Source unavailable. Tap here to retry.';
         });
       }

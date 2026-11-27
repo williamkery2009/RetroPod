@@ -62,8 +62,8 @@ class PipedService {
           )
           .timeout(const Duration(seconds: 10));
       if (response.statusCode != 200) {
-        throw const PipedPlaybackException(
-          'The Piped server could not resolve this track (PIPED_SERVER). '
+        throw PipedPlaybackException(
+          'The Piped server returned HTTP ${response.statusCode} (PIPED_SERVER). '
           'Select Piped server to try a different API instance.',
         );
       }

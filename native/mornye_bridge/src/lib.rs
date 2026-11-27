@@ -7,6 +7,23 @@ fn string<'a>(v: &'a Value, key: &str) -> Result<&'a str, String> {
     v[key].as_str().ok_or_else(|| format!("Missing {key}"))
 }
 fn parsed(s: String) -> Result<Value, String> { serde_json::from_str(&s).map_err(|e| e.to_string()) }
+// Raw provider responses may include signed URLs, tokens and cookies.
+// Only a fixed diagnostic category crosses the native boundary on failure.
+fn error_code(message: &str) -> &'static str {
+    let m = message.to_ascii_lowercase();
+    if m.contains("signed-session") || m.contains("signed session") || m.contains("verification_required") || m.contains("verify_required") { "EXT_SESSION" }
+    else if m.contains("sign in") || m.contains("login") || m.contains("authentication") || m.contains("unauthorized") || m.contains("401") || m.contains("not a bot") { "EXT_AUTH" }
+    else if m.contains("403") || m.contains("forbidden") { "EXT_FORBIDDEN" }
+    else if m.contains("429") || m.contains("rate limit") { "EXT_RATE_LIMIT" }
+    else if m.contains("timeout") || m.contains("timed out") { "EXT_TIMEOUT" }
+    else if m.contains("quality_unavailable") || m.contains("unsupported quality") { "EXT_QUALITY" }
+    else if m.contains("permission") || m.contains("not allowed") || m.contains("not permitted") { "EXT_PERMISSION" }
+    else if m.contains("runtime feature") || m.contains("app version") || m.contains("function not found") { "EXT_COMPATIBILITY" }
+    else if m.contains("disabled") || m.contains("extension not found") { "EXT_DISABLED" }
+    else if m.contains("502") || m.contains("503") || m.contains("504") { "EXT_SERVER" }
+    else if m.contains("no playable") || m.contains("not_found") || m.contains("not found") { "EXT_NO_AUDIO" }
+    else { "EXT_FAILED" }
+}
 fn dispatch(v: Value) -> Result<Value, String> {
     let op = string(&v, "op")?;
     if op == "init" {
@@ -42,7 +59,11 @@ fn dispatch(v: Value) -> Result<Value, String> {
                 // Resolve fresh provider state; search metadata is not a prepared context.
                 prepared_context: None,
             };
-            parsed(m.download(id, request, 60000).map_err(|e| e.to_string())?)
+            let result = parsed(m.download(id, request, 60000).map_err(|e| e.to_string())?)?;
+            if result["success"] != true {
+                return Err(format!("{} {}", result["error_type"].as_str().unwrap_or(""), result["error_message"].as_str().unwrap_or("")));
+            }
+            Ok(result)
         },
         "ffmpegPoll" => parsed(m.environment().ffmpeg_commands().wait_pending_json(1000).map_err(|e|e.to_string())?),
         "ffmpegComplete" => {
@@ -61,7 +82,7 @@ pub unsafe extern "C" fn rp_call(input: *const c_char) -> *mut c_char {
         let raw = unsafe { CStr::from_ptr(input) }.to_str().map_err(|_| "Invalid UTF-8".to_string())?;
         dispatch(serde_json::from_str(raw).map_err(|e|e.to_string())?)
     });
-    let value = match result { Ok(Ok(v)) => json!({"value":v}), Ok(Err(e)) => json!({"error":e}), Err(_) => json!({"error":"Native runtime failure"}) };
+    let value = match result { Ok(Ok(v)) => json!({"value":v}), Ok(Err(e)) => json!({"error":error_code(&e)}), Err(_) => json!({"error":"EXT_FAILED"}) };
     CString::new(value.to_string()).unwrap().into_raw()
 }
 #[unsafe(no_mangle)]
@@ -120,5 +141,21 @@ mod package_tests {
         assert!(reopened.search_metadata_provider("fixture","Search",10,1000).is_err());
         reopened.remove("fixture").unwrap();
         assert_eq!(parsed(reopened.installed().unwrap()).unwrap(),json!([]));
+    }
+}
+
+#[cfg(test)]
+mod diagnostic_tests {
+    use super::*;
+    #[test]
+    fn errors_are_categorized_without_returning_provider_secrets() {
+        for (raw, expected) in [
+            ("HTTP 403 https://example.invalid?token=secret", "EXT_FORBIDDEN"),
+            ("verification_required signed-session grant missing", "EXT_SESSION"),
+            ("LOGIN_REQUIRED cookie=secret", "EXT_AUTH"),
+            ("quality_unavailable", "EXT_QUALITY"),
+            ("stream resolution timeout", "EXT_TIMEOUT"),
+            ("unknown token=secret", "EXT_FAILED"),
+        ] { assert_eq!(error_code(raw), expected); }
     }
 }

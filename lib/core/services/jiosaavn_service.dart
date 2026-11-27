@@ -47,13 +47,18 @@ class JioSaavnService {
           .get(base.replace(path: '${base.path}$path', queryParameters: query))
           .timeout(const Duration(seconds: 12));
       if (response.statusCode != 200) {
-        throw const FormatException('Server unavailable');
+        throw JioSaavnException(
+          'JioSaavn API returned HTTP ${response.statusCode} (JIO_SERVER). '
+          'Change the JioSaavn server or try again later.',
+        );
       }
       final data = jsonDecode(utf8.decode(response.bodyBytes));
       if (data is! Map || data['success'] == false || data['error'] != null) {
         throw const FormatException('Invalid server response');
       }
       return data;
+    } on JioSaavnException {
+      rethrow;
     } catch (_) {
       throw const JioSaavnException(
         'JioSaavn API unavailable (JIO_SERVER). Use JioSaavn server to set '

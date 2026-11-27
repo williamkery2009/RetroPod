@@ -29,15 +29,63 @@ class MornyeExtensionService {
       );
       return (jsonDecode(raw!) as Map)['value'];
     } on PlatformException catch (e) {
-      throw MornyeExtensionException(
-        e.message ?? 'Extension operation failed.',
-      );
+      throw MornyeExtensionException(errorMessage(e.code, fallback: e.message));
     } on MissingPluginException {
       throw const MornyeExtensionException(
         'Mornye extensions require the Android build with its native runtime.',
       );
     }
   }
+
+  static String errorMessage(String code, {String? fallback}) {
+    final message = switch (code) {
+      'EXT_SESSION' =>
+        'This extension requires Mornye session verification, which RetroPod does not support yet.',
+      'EXT_AUTH' =>
+        'This provider requires sign-in or verification. Browser account sign-in is not supported yet.',
+      'EXT_FORBIDDEN' =>
+        'The provider rejected the request (HTTP 403). An extension update may help; playback is not currently available.',
+      'EXT_RATE_LIMIT' =>
+        'The provider limited requests. Wait before trying again.',
+      'EXT_TIMEOUT' => 'The extension timed out while contacting its provider.',
+      'EXT_SERVER' => 'The provider server is unavailable. Try again later.',
+      'EXT_QUALITY' => 'The requested audio quality is unavailable.',
+      'EXT_PERMISSION' =>
+        'The extension requested access outside its allowed permissions.',
+      'EXT_COMPATIBILITY' =>
+        'This extension needs a runtime feature or version not supported by this build.',
+      'EXT_DISABLED' => 'This extension is disabled or no longer installed.',
+      'EXT_NO_AUDIO' =>
+        'This provider returned no playable audio for the selected track.',
+      'EXT_NO_FILE' => 'The extension did not produce a valid audio file.',
+      'EXT_FINALIZATION' =>
+        'This extension output requires audio finalization that RetroPod does not support yet.',
+      'EXT_FAILED' =>
+        'The extension failed without a recognized cause. Try an extension update or another track.',
+      _ => fallback ?? 'Extension operation failed.',
+    };
+    return '$message ($code)';
+  }
+
+  /// Mornye manifests accept both string choices and labeled object choices.
+  static List<Map<String, dynamic>> settingOptions(Object? input) =>
+      input is List
+      ? input.expand<Map<String, dynamic>>((option) {
+          if (option is String)
+            return [
+              {'value': option, 'label': option},
+            ];
+          if (option is Map && option['value'] != null) {
+            return [
+              {
+                'value': option['value'],
+                'label': option['label']?.toString() ?? '${option['value']}',
+              },
+            ];
+          }
+          return [];
+        }).toList()
+      : [];
 
   Future<List<Map<String, dynamic>>> installed() async =>
       _maps(await call('installed'));

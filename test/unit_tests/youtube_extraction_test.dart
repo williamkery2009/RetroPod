@@ -6,10 +6,41 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:retropod/core/models/music_metadata.dart';
 import 'package:retropod/core/services/youtube_music_service.dart';
+import 'package:retropod/core/services/online_music_service.dart';
 import 'package:retropod/core/services/youtube_playback_error.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
 void main() {
+  test(
+    'failed fallback preserves direct verification failure safely',
+    () async {
+      final client = MockClient((_) async => http.Response('secret', 503));
+      addTearDown(client.close);
+      final service = OnlineMusicService(
+        client,
+        resolveYoutubeAudio: (_) async {
+          throw StateError('Sign in Cookie: secret');
+        },
+      );
+      await expectLater(
+        service.resolveForPlayback(
+          MusicMetadata(
+            filePath: 'https://music.youtube.com/watch?v=abcdefghijk',
+            isOnDevice: false,
+          ),
+        ),
+        throwsA(
+          predicate<Object>((error) {
+            final message = youtubePlaybackErrorMessage(error);
+            return message.contains('YT_SIGN_IN') &&
+                message.contains('PIPED_SERVER') &&
+                !message.contains('secret');
+          }),
+        ),
+      );
+    },
+  );
+
   test(
     'extracts audio through the real parser without fetching a watch page',
     () async {
