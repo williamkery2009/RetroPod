@@ -202,6 +202,8 @@ jobs:
           targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
       - name: Install Android Rust builder
         run: cargo install cargo-ndk --locked
+      - name: Prepare pinned runtime
+        run: bash scripts/prepare_mornye_runtime.sh
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: build/mornye-source/rust_backend
