@@ -9,7 +9,6 @@ import 'package:retropod/core/models/lrc_lyrics.dart';
 import 'package:retropod/core/services/audio_player_service.dart';
 import 'package:retropod/features/now_playing/widgets/interlude_dots.dart';
 import 'package:retropod/features/now_playing/widgets/karaoke_line.dart';
-import 'package:retropod/features/now_playing/widgets/lyric_focus.dart';
 import 'package:retropod/features/now_playing/widgets/spring_offset.dart';
 
 class LyricsView extends ConsumerStatefulWidget {
@@ -285,6 +284,13 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     // The second singer in a duet sits on the right.
     final bool isRight = line.voice == 2;
     final TextAlign textAlign = isRight ? TextAlign.right : TextAlign.left;
+    final int focusIndex = _activeLineIndex < 0 ? 0 : _activeLineIndex;
+    final int distance = (index - focusIndex).abs();
+    // Blur grows with distance and then stays at its maximum.
+    final double blur = isActive || _isBrowsing
+        ? 0
+        : math.min(distance * 0.7, 2.5);
+
     final TextStyle style = TextStyle(
       fontSize: widget.fontSize,
       height: 1.25,
@@ -292,24 +298,27 @@ class _LyricsViewState extends ConsumerState<LyricsView>
       color: CupertinoColors.white,
     );
 
-    final Widget leadText = isActive && line.words.isNotEmpty
-        ? KaraokeLine(
-            words: line.words,
-            position: _position,
-            style: style,
-            textAlign: textAlign,
-          )
-        : Text(line.text, style: style, textAlign: textAlign);
+    Widget buildText(TextStyle lineStyle) {
+      final Widget leadText = isActive && line.words.isNotEmpty
+          ? KaraokeLine(
+              words: line.words,
+              position: _position,
+              style: style,
+              textAlign: textAlign,
+            )
+          : Text(line.text, style: lineStyle, textAlign: textAlign);
 
-    final Widget text = line.backgroundWords.isEmpty
-        ? leadText
-        : Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              leadText,
-              _buildBackgroundVocals(line, isActive, style, textAlign),
-            ],
-          );
+      if (line.backgroundWords.isEmpty) {
+        return leadText;
+      }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          leadText,
+          _buildBackgroundVocals(line, isActive, lineStyle, textAlign),
+        ],
+      );
+    }
 
     return GestureDetector(
       key: _lineKeys[index],
@@ -324,16 +333,37 @@ class _LyricsViewState extends ConsumerState<LyricsView>
           duration: const Duration(milliseconds: 400),
           curve: Curves.easeOut,
           child: AnimatedOpacity(
-            opacity: isActive ? 1 : (_isBrowsing ? 0.75 : 0.55),
+            opacity: isActive ? 1 : (_isBrowsing ? 0.6 : 0.35),
             duration: const Duration(milliseconds: 400),
-            child: LyricFocus(
-              isActive: isActive,
-              isBrowsing: _isBrowsing,
-              child: SizedBox(width: double.infinity, child: text),
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(end: blur),
+              duration: const Duration(milliseconds: 400),
+              builder: (context, sigma, _) => SizedBox(
+                width: double.infinity,
+                child: buildText(_softened(style, sigma)),
+              ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  /// Blurs text by drawing only its shadow. This is cheap enough to apply to
+  /// every inactive line, unlike a separate blur layer for each one.
+  TextStyle _softened(TextStyle style, double sigma) {
+    if (sigma < 0.6) {
+      return style;
+    }
+    return style.copyWith(
+      color: const Color(0x00FFFFFF),
+      shadows: [
+        Shadow(
+          color: CupertinoColors.white,
+          // Inverse of Shadow's radius to sigma conversion.
+          blurRadius: (sigma - 0.5) / 0.57735,
+        ),
+      ],
     );
   }
 
@@ -343,7 +373,9 @@ class _LyricsViewState extends ConsumerState<LyricsView>
     TextStyle leadStyle,
     TextAlign textAlign,
   ) {
-    final TextStyle style = leadStyle.copyWith(fontSize: widget.fontSize * 0.7);
+    final TextStyle textStyle = leadStyle.copyWith(
+      fontSize: widget.fontSize * 0.7,
+    );
 
     return Padding(
       padding: const EdgeInsets.only(top: 4),
@@ -351,12 +383,13 @@ class _LyricsViewState extends ConsumerState<LyricsView>
           ? KaraokeLine(
               words: line.backgroundWords,
               position: _position,
-              style: style,
+              // The active line is never blurred.
+              style: textStyle.copyWith(color: CupertinoColors.white),
               textAlign: textAlign,
             )
           : Text(
               line.backgroundWords.map((word) => word.text).join().trim(),
-              style: style,
+              style: textStyle,
               textAlign: textAlign,
             ),
     );

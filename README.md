@@ -36,7 +36,7 @@ no YouTube account sign-in flow. Signed audio URLs are not saved as
 library identifiers. Long-lived queues may need to be reselected if URLs expire.
 Availability depends on your region, the provider, and browser CORS support.
 
-**Lyric Focus:** Inactive lines have a subtle 0.65-pixel blur. The current line
+**Lyric Focus:** Inactive lines use the base branch’s shadow-based blur. The current line
 and lines being manually browsed remain sharp; distant lines do not suddenly
 become sharper than nearby ones.
 

@@ -1,5 +1,7 @@
 ## Unreleased — Mornye extension packages
 
+- Preserve the updated base-branch lyric rendering when resolving the merge.
+
 - Add Android `.sflx` registry installation/update, permission review, settings,
   enable/disable/removal and installed-provider search.
 - Reuse pinned Mornye Rust/QuickJS runtime with scoped host services; prepare
