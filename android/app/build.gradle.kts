@@ -121,5 +121,5 @@ val copyFfmpegNotices = tasks.register<Sync>("copyFfmpegNotices") {
     from({ ffmpegNotices.map { zipTree(it) } }) { include("LICENSES/**") }
     into(layout.buildDirectory.dir("generated/ffmpegNotices"))
 }
-android.sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/ffmpegNotices"))
+android.sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/ffmpegNotices").get().asFile)
 tasks.named("preBuild").configure { dependsOn(copyFfmpegNotices) }
