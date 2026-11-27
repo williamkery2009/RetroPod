@@ -71,10 +71,11 @@ class MornyeExtensionService {
   static List<Map<String, dynamic>> settingOptions(Object? input) =>
       input is List
       ? input.expand<Map<String, dynamic>>((option) {
-          if (option is String)
+          if (option is String) {
             return [
               {'value': option, 'label': option},
             ];
+          }
           if (option is Map && option['value'] != null) {
             return [
               {
