@@ -157,7 +157,7 @@ object MornyeExtensions {
                 require(response.optBoolean("success") && !response.has("decryption") && response.optString("decryption_key").isEmpty())
                 val reported = response.optString("file_path").ifEmpty { response.optString("output_path").ifEmpty { output.path } }
                 val file = File(reported).canonicalFile
-                require(file.toPath().startsWith(File(root,"audio").canonicalFile.toPath()) && file.isFile && file.length() > 0)
+                require(file.path.startsWith(File(root,"audio").canonicalPath + File.separator) && file.isFile && file.length() > 0)
                 return file.toURI().toString()
             }
             "installed", "remove", "enable", "settings", "saveSettings", "search" -> {
