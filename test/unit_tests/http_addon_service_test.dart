@@ -371,4 +371,71 @@ void main() {
       ),
     );
   });
+
+  test('lists manifest choices and saves one under the same ID', () async {
+    Object? saved;
+    messenger.setMockMethodCallHandler(channel, (call) async {
+      saved = call.arguments;
+      return '{}';
+    });
+    final client = MockClient(
+      (_) async => http.Response(
+        jsonEncode({
+          'settings': [
+            {
+              'key': 'quality',
+              'type': 'select',
+              'default': 'lossless',
+              'options': [
+                {'label': 'Lossless', 'value': 'lossless'},
+                {'label': 'High', 'value': 'high'},
+              ],
+            },
+          ],
+        }),
+        200,
+      ),
+    );
+    addTearDown(client.close);
+    final service = HttpAddonService(client, configuration: () async => config);
+    final setting = (await service.editableSettings()).single;
+    expect(setting.value, 'lossless');
+    expect(setting.options, {'lossless': 'Lossless', 'high': 'High'});
+    await service.updateSetting('quality', 'high');
+    expect(saved, {
+      'id': 'local-id',
+      'url': config['url'],
+      'name': 'Example',
+      'settings': {'quality': 'high'},
+    });
+  });
+
+  test('rejects prank files sent in place of the requested song', () async {
+    final client = MockClient(
+      (request) async => http.Response(
+        jsonEncode(
+          request.url.path.endsWith('/search')
+              ? [
+                  {'id': '1', 'title': 'Song'},
+                ]
+              : {
+                  'url':
+                      'https://cdn.jsdelivr.net/gh/someone/pranks-cdn@main/a.mp3',
+                  'format': 'flac',
+                },
+        ),
+        200,
+      ),
+    );
+    addTearDown(client.close);
+    final service = HttpAddonService(client, configuration: () async => config);
+    await expectLater(
+      service.resolve((await service.search('Song')).single),
+      throwsA(
+        predicate<HttpAddonException>(
+          (e) => e.message.contains('ADDON_DECOY'),
+        ),
+      ),
+    );
+  });
 }

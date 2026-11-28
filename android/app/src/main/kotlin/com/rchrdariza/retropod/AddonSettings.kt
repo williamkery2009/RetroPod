@@ -40,7 +40,9 @@ object AddonSettings {
                         "set" -> {
                             val url = call.argument<String>("url") ?: error("Missing URL")
                             require(url.length <= 8192)
-                            val data = JSONObject().put("id", UUID.randomUUID().toString()).put("url", url)
+                            val id = call.argument<String>("id") ?: UUID.randomUUID().toString()
+                            require(id.length <= 64)
+                            val data = JSONObject().put("id", id).put("url", url)
                                 .put("name", (call.argument<String>("name") ?: "Custom add-on").take(100))
                                 .put("settings", JSONObject(call.argument<Map<String, String>>("settings") ?: emptyMap<String, String>())).toString()
                             require(data.toByteArray(Charsets.UTF_8).size <= 32000)
