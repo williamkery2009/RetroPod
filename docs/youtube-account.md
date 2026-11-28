@@ -16,13 +16,17 @@ passwords or cookies in chat, logs, issues or screenshots.
 Only the built-in YouTube Music provider uses this session. Piped and Mornye
 extensions never receive it. Search remains public. Authenticated playback uses
 the signed-in WEB_REMIX client configuration and a scoped request to YouTube's
-player endpoint. Only direct HTTPS Googlevideo audio URLs are returned to the
-existing player. Signature-cipher and proof-of-origin token handling are not
+player endpoint. Only direct HTTPS Googlevideo URLs are returned to the
+existing player: audio-only first, otherwise the lowest-bitrate combined MP4
+that the response lists (this also downloads its unused video). Signature-cipher and proof-of-origin token handling are not
 implemented; sign-in therefore does not guarantee playable audio.
 
 YT_SESSION_EXPIRED means reconnect the account. YT_SESSION_REJECTED means the
 request was denied. YT_SESSION_NO_AUDIO means no supported direct audio URL was
-returned. A failed authenticated request may still use the existing anonymous
+returned. YT_PROTECTED_ONLY means only protected links were listed.
+YT_ACCOUNT_VERIFY means YouTube wants a check, YT_TRACK_UNAVAILABLE means the
+track was refused as unplayable, and YT_ACCOUNT_RATE_LIMIT, YT_ACCOUNT_SERVER
+and YT_ACCOUNT_NETWORK describe limits, server errors and connection failures. A failed authenticated request may still use the existing anonymous
 Piped fallback, without credentials.
 
 ## Session handling
@@ -50,3 +54,17 @@ slow-page notice and a 10-second timeout for reading the account configuration.
 First-party session cookies are recognized. These changes address silent
 redirect rejection and indefinite account-check UI; they do not bypass Google
 verification or establish that every device can sign in.
+
+## Device checklist
+
+Unit tests cannot sign in to Google. On an Android phone, record each result:
+
+1. Sign in, tap Use account, and confirm Session saved appears.
+2. Close and reopen the app; YouTube account should still show a saved session.
+3. Play three different songs. Note any YT_ code exactly.
+4. For a song that plays, listen to the end and seek once.
+5. Turn on airplane mode and select a new track.
+6. Sign out and confirm the saved session is gone.
+
+If sign-in succeeds but playback shows a YT_ code, record both separately.
+Never include passwords, cookies or stream URLs.
