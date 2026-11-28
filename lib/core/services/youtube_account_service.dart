@@ -16,6 +16,20 @@ class YoutubeAccountException implements Exception {
       'YouTube accepted the request but returned no '
           'supported direct audio. This session may require additional player '
           'support that RetroPod does not have yet.',
+    'YT_PROTECTED_ONLY' =>
+      'YouTube offered only protected links for this track. '
+          'RetroPod does not decode them. Open it in YouTube Music.',
+    'YT_ACCOUNT_VERIFY' =>
+      'YouTube asked for sign-in or another check before playing this track. '
+          'Open it in YouTube Music, or sign out and sign in again.',
+    'YT_TRACK_UNAVAILABLE' =>
+      'YouTube says this track cannot be played here. Try another version.',
+    'YT_ACCOUNT_RATE_LIMIT' =>
+      'YouTube limited requests. Wait a while before trying again.',
+    'YT_ACCOUNT_SERVER' =>
+      'YouTube had a server problem. Try again later.',
+    'YT_ACCOUNT_NETWORK' =>
+      'Could not reach YouTube. Check the connection and try again.',
     'YT_ACCOUNT_BUSY' => 'A YouTube sign-in window is already open.',
     _ => 'YouTube account access is unavailable. Try again on Android.',
   };
@@ -63,6 +77,7 @@ class YoutubeAccountService {
     if (uri == null ||
         uri.scheme != 'https' ||
         uri.userInfo.isNotEmpty ||
+        uri.port != 443 ||
         (uri.host != 'googlevideo.com' &&
             !uri.host.endsWith('.googlevideo.com'))) {
       throw const YoutubeAccountException('YT_SESSION_NO_AUDIO');

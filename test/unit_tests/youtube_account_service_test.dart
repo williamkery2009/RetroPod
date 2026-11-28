@@ -111,6 +111,7 @@ void main() {
       'http://r1.googlevideo.com/a',
       'https://googlevideo.com.evil.test/a',
       'https://user:secret@r1.googlevideo.com/a',
+      'https://r1.googlevideo.com:444/a',
     ]) {
       messenger.setMockMethodCallHandler(channel, (_) async => value);
       await expectLater(
@@ -118,5 +119,33 @@ void main() {
         throwsA(isA<YoutubeAccountException>()),
       );
     }
+  });
+
+  test('each playback failure has its own safe explanation', () async {
+    final messages = <String>{};
+    const codes = [
+      'YT_PROTECTED_ONLY',
+      'YT_ACCOUNT_VERIFY',
+      'YT_TRACK_UNAVAILABLE',
+      'YT_ACCOUNT_RATE_LIMIT',
+      'YT_ACCOUNT_SERVER',
+      'YT_ACCOUNT_NETWORK',
+    ];
+    for (final code in codes) {
+      messenger.setMockMethodCallHandler(channel, (_) async {
+        throw PlatformException(code: code, message: 'cookie=secret');
+      });
+      await expectLater(
+        YoutubeAccountService.instance.resolve('abcdefghijk'),
+        throwsA(
+          predicate<Object>((e) {
+            final message = youtubePlaybackErrorMessage(e);
+            messages.add(message.replaceAll(code, ''));
+            return message.contains(code) && !message.contains('secret');
+          }),
+        ),
+      );
+    }
+    expect(messages, hasLength(codes.length));
   });
 }

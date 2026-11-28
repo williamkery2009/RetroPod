@@ -331,23 +331,30 @@ object YoutubeAccount {
             val body = JSONObject().put("context", JSONObject().put("client", client)).put("videoId", id)
             connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
             val status = connection.responseCode
-            if (status == 401) throw Failure("YT_SESSION_EXPIRED")
-            if (status != 200) throw Failure("YT_SESSION_REJECTED")
+            YoutubePlaybackPolicy.httpFailure(status)?.let { throw Failure(it) }
             val bytes = connection.inputStream.use { it.readBytesBounded(2 * 1024 * 1024) }
             val response = JSONObject(String(bytes, Charsets.UTF_8))
-            if (response.optJSONObject("playabilityStatus")?.optString("status") != "OK") throw Failure("YT_SESSION_REJECTED")
-            val formats = response.optJSONObject("streamingData")?.optJSONArray("adaptiveFormats")
+            val playability = response.optJSONObject("playabilityStatus")?.optString("status") ?: ""
+            YoutubePlaybackPolicy.playabilityFailure(playability)?.let { throw Failure(it) }
+            val streaming = response.optJSONObject("streamingData")
                 ?: throw Failure("YT_SESSION_NO_AUDIO")
-            val candidates = (0 until formats.length()).mapNotNull { formats.optJSONObject(it) }.filter {
-                val uri = Uri.parse(it.optString("url"))
-                it.optString("mimeType").let { mime -> mime.startsWith("audio/mp4") || mime.startsWith("audio/webm") } &&
-                    uri.scheme == "https" && uri.userInfo == null && uri.port in listOf(-1, 443) &&
-                    (uri.host == "googlevideo.com" || uri.host?.endsWith(".googlevideo.com") == true)
+            fun formats(name: String): List<YoutubePlaybackPolicy.Format> {
+                val array = streaming.optJSONArray(name) ?: return emptyList()
+                return (0 until array.length()).mapNotNull { array.optJSONObject(it) }.map {
+                    YoutubePlaybackPolicy.Format(
+                        it.optString("url"), it.optString("mimeType"), it.optInt("bitrate"),
+                        it.has("signatureCipher") || it.has("cipher"),
+                    )
+                }
             }
+            val adaptive = formats("adaptiveFormats")
+            val combined = formats("formats")
             // No signature/PO-token bypass: unsupported responses get a distinct error.
-            return candidates.sortedWith(compareByDescending<JSONObject> { it.optString("mimeType").startsWith("audio/mp4") }
-                .thenByDescending { it.optInt("bitrate") }).firstOrNull()?.getString("url")
-                ?: throw Failure("YT_SESSION_NO_AUDIO")
+            return YoutubePlaybackPolicy.pick(adaptive, combined)
+                ?: throw Failure(YoutubePlaybackPolicy.noAudioFailure(adaptive + combined))
+        } catch (_: java.io.IOException) {
+            // Native messages can include request details, so only a code leaves.
+            throw Failure("YT_ACCOUNT_NETWORK")
         } finally { connection.disconnect() }
     }
 
