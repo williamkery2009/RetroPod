@@ -18,13 +18,15 @@ class HttpAddonSetting {
     required this.label,
     required this.value,
     required this.options,
+    this.secret = false,
   });
   final String key;
   final String label;
   final String value;
 
-  /// Provider value to display label.
+  /// Provider value to display label. Empty means free text.
   final Map<String, String> options;
+  final bool secret;
 }
 
 /// Independent client for Lastwave's manifest/search/stream HTTP protocol.
@@ -37,6 +39,16 @@ class HttpAddonService {
   final Future<Map<String, dynamic>?> Function() _configuration;
   static const _channel = MethodChannel('retropod/http_addon');
   static const setupWebsite = 'https://lastwaveaddons.clashprojects.qd.je';
+  static const _toggleTypes = [
+    'boolean',
+    'bool',
+    'toggle',
+    'switch',
+    'checkbox',
+  ];
+
+  /// Hosts that answered 429, and when they may be asked again.
+  static final _heldUntil = <String, DateTime>{};
 
   static Uri baseUrl(String value) {
     final uri = Uri.tryParse(value.trim());
@@ -162,13 +174,7 @@ class HttpAddonService {
           ? raw.toString()
           : null;
       if (values.isNotEmpty && !values.contains(value)) value = values.first;
-      if ([
-            'boolean',
-            'bool',
-            'toggle',
-            'switch',
-            'checkbox',
-          ].contains(row['type']) &&
+      if (_toggleTypes.contains(row['type']) &&
           value != 'true' &&
           value != 'false') {
         value = 'false';
@@ -195,11 +201,17 @@ class HttpAddonService {
     for (final row in rows is List ? rows.whereType<Map>() : <Map>[]) {
       final key = row['key'] ?? row['id'] ?? row['name'];
       final raw = row['options'];
-      if (key is! String || !defaults.containsKey(key) || raw is! List) {
+      if (key is! String ||
+          key == 'q' ||
+          !RegExp(r'^[A-Za-z0-9_.-]{1,64}$').hasMatch(key) ||
+          result.any((s) => s.key == key)) {
         continue;
       }
-      final options = <String, String>{};
-      for (final option in raw.take(20)) {
+      final toggle = _toggleTypes.contains(row['type']);
+      final options = <String, String>{
+        if (toggle) ...{'true': 'On', 'false': 'Off'},
+      };
+      for (final option in !toggle && raw is List ? raw.take(20) : const []) {
         final value = option is Map ? option['value'] : option;
         if (value is! String && value is! num && value is! bool) continue;
         final text = value.toString();
@@ -207,17 +219,19 @@ class HttpAddonService {
         final label = option is Map ? option['label'] : null;
         options[text] = label is String && label.isNotEmpty ? label : text;
       }
-      if (options.isEmpty) continue;
       final current = saved is Map ? saved[key] : null;
       final label = row['label'] ?? row['title'];
       result.add(
         HttpAddonSetting(
           key: key,
           label: label is String && label.isNotEmpty ? label : key,
-          value: options.containsKey(current)
+          value: options.isEmpty
+              ? (saved is Map ? current : defaults[key])?.toString() ?? ''
+              : options.containsKey(current)
               ? current as String
-              : defaults[key]!,
+              : defaults[key] ?? options.keys.first,
           options: options,
+          secret: row['type'] == 'password',
         ),
       );
     }
@@ -226,8 +240,14 @@ class HttpAddonService {
 
   /// Saves one choice. The configuration ID stays, so results remain valid.
   Future<void> updateSetting(String key, String value) async {
+    if (value.length > 256) {
+      throw const HttpAddonException(
+        'Use 256 characters or fewer (ADDON_SETTING).',
+      );
+    }
     final config = await _config();
     final settings = {...await _settings(config), key: value};
+    if (value.isEmpty) settings.remove(key);
     try {
       await _channel.invokeMethod<String>('set', {
         'id': config['id'],
@@ -272,18 +292,30 @@ class HttpAddonService {
   }
 
   Future<Object?> _get(Uri uri) async {
+    final held = _heldUntil[uri.host];
+    if (held != null && held.isAfter(DateTime.now())) throw _rateLimited;
     try {
-      final request = http.Request('GET', uri)..followRedirects = false;
-      request.headers['Accept'] = 'application/json';
-      request.headers['User-Agent'] = 'RetroPod';
-      request.headers['Cache-Control'] = 'no-cache';
-      final response = await _client
-          .send(request)
-          .timeout(const Duration(seconds: 15));
-      if (response.statusCode != 200) {
+      var response = await _send(uri);
+      if (const [502, 503, 504].contains(response.statusCode)) {
         await response.stream.listen((_) {}).cancel();
+        response = await _send(uri);
+      }
+      final status = response.statusCode;
+      if (status != 200) {
+        await response.stream.listen((_) {}).cancel();
+        if (status == 429) {
+          final asked = int.tryParse(response.headers['retry-after'] ?? '');
+          _heldUntil[uri.host] = DateTime.now().add(
+            Duration(
+              seconds: asked == null || asked <= 0 ? 30 : asked.clamp(1, 600),
+            ),
+          );
+          throw _rateLimited;
+        }
         throw HttpAddonException(
-          'Add-on returned HTTP ${response.statusCode} (ADDON_HTTP). The provider may require account verification, quota or app authorization not supported here.',
+          status == 404 || status == 410
+              ? 'The add-on could not find this item (ADDON_NOT_FOUND).'
+              : 'Add-on returned HTTP $status (ADDON_HTTP). The provider may require account verification, quota or app authorization not supported here.',
         );
       }
       final data = <int>[];
@@ -304,6 +336,27 @@ class HttpAddonService {
       throw const HttpAddonException(
         'Add-on timed out or returned invalid data (ADDON_RESPONSE).',
       );
+    }
+  }
+
+  static const _rateLimited = HttpAddonException(
+    'The add-on asked for fewer requests. Wait before trying again (ADDON_RATE_LIMIT).',
+  );
+
+  /// One GET, sent once more if the connection drops. Timeouts are not retried.
+  Future<http.StreamedResponse> _send(Uri uri) async {
+    Future<http.StreamedResponse> attempt() {
+      final request = http.Request('GET', uri)..followRedirects = false;
+      request.headers['Accept'] = 'application/json';
+      request.headers['User-Agent'] = 'RetroPod';
+      request.headers['Cache-Control'] = 'no-cache';
+      return _client.send(request).timeout(const Duration(seconds: 15));
+    }
+
+    try {
+      return await attempt();
+    } on http.ClientException {
+      return attempt();
     }
   }
 
@@ -329,7 +382,7 @@ class HttpAddonService {
     final seen = <String>{};
     for (final row in rows.whereType<Map>()) {
       final id = row['id']?.toString() ?? '';
-      final title = row['title'];
+      final title = row['title'] ?? row['name'];
       if (id.isEmpty ||
           id.length > 256 ||
           title is! String ||
@@ -337,16 +390,17 @@ class HttpAddonService {
           !seen.add(id)) {
         continue;
       }
-      final duration = num.tryParse('${row['duration']}');
+      final artists = row['artists'];
+      final names = artists is List
+          ? artists.map(_name).whereType<String>().toList()
+          : [?_name(row['artist'])];
       final art = Uri.tryParse('${row['artworkURL'] ?? ''}');
       songs.add(
         MusicMetadata(
           trackName: title,
-          trackArtistNames: [row['artist']?.toString() ?? 'Unknown Artist'],
-          albumName: row['album']?.toString() ?? config['name'] as String?,
-          trackDuration: duration != null && duration.isFinite && duration > 0
-              ? (duration * 1000).round()
-              : null,
+          trackArtistNames: names.isEmpty ? ['Unknown Artist'] : names,
+          albumName: _name(row['album']) ?? config['name'] as String?,
+          trackDuration: _durationMs(row),
           thumbnailPath: art?.scheme == 'https' && art!.userInfo.isEmpty
               ? art.toString()
               : null,
@@ -362,6 +416,30 @@ class HttpAddonService {
       if (songs.length == 40) break;
     }
     return songs;
+  }
+
+  /// A plain string, or an object naming itself.
+  static String? _name(Object? value) {
+    final text = value is Map ? value['name'] ?? value['title'] : value;
+    return text is String && text.trim().isNotEmpty ? text.trim() : null;
+  }
+
+  /// Accepts durationMs, seconds, or a clock such as 3:21.
+  static int? _durationMs(Map row) {
+    final millis = num.tryParse('${row['durationMs']}');
+    if (millis != null && millis.isFinite && millis > 0) return millis.round();
+    final text = '${row['duration']}';
+    num? seconds = num.tryParse(text);
+    if (seconds == null) {
+      final parts = text.split(':').map(int.tryParse).toList();
+      if (parts.length < 2 || parts.length > 3 || parts.contains(null)) {
+        return null;
+      }
+      seconds = parts.fold<int>(0, (total, part) => total * 60 + part!);
+    }
+    if (!seconds.isFinite || seconds <= 0) return null;
+    // More than ten hours of seconds is taken to already be milliseconds.
+    return (seconds > 36000 ? seconds : seconds * 1000).round();
   }
 
   static bool handles(MusicMetadata song) {

@@ -10,8 +10,8 @@ RetroPod checks GET /manifest.json before saving a private endpoint in Android
 Keystore-encrypted, non-backup storage. Search uses /search?q=... plus the manifest-declared setting defaults. The same
 settings go to /stream/{id}; quality and atmos are no longer forced. Existing
 configurations fetch their manifest defaults automatically. Re-saving stores
-the defaults with the encrypted endpoint. Manifest settings that list options
-(such as quality) can be changed on the add-on screen. Changing one keeps the
+the defaults with the encrypted endpoint. Manifest settings (choices such as
+quality, on/off and free text) can be changed on the add-on screen. Changing one keeps the
 configuration ID, so existing results stay valid. Query tokens in endpoint URLs are preserved. Selecting a result resolves /stream/{id} afresh, accepting direct
 HTTPS audio URLs, including relative paths resolved against the add-on base.
 DASH/HLS hints select the matching player source. Validated provider playback
@@ -48,3 +48,9 @@ but stream responses for two tracks pointed to files in a "pranks-cdn" GitHub
 repository on jsDelivr, labelled as FLAC. RetroPod rejects these (ADDON_DECOY).
 The check covers only that observed source and does not verify that other audio
 matches the requested track. The reason the provider sends them is unknown.
+
+Search also accepts artist lists, artist or album objects, durationMs and clock
+durations. A 502, 503, 504 or dropped connection is retried once. After HTTP 429
+the host is not asked again until Retry-After (default 30 seconds, at most 10
+minutes). These behaviours follow what Podium (GPL-3.0) documents for the
+protocol; the Dart code was written for RetroPod and copies no Podium source.

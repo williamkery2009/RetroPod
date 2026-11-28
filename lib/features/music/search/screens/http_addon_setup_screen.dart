@@ -151,6 +151,17 @@ class _HttpAddonSetupScreenState extends State<HttpAddonSetupScreen> {
               setting.label,
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
+            if (setting.options.isEmpty)
+              CupertinoTextFormFieldRow(
+                key: ValueKey('${setting.key}=${setting.value}'),
+                initialValue: setting.value,
+                obscureText: setting.secret,
+                autocorrect: false,
+                enabled: !_busy,
+                placeholder: 'Type a value, then press done',
+                onFieldSubmitted: (value) =>
+                    _choose(setting.key, value.trim()),
+              ),
             for (final option in setting.options.entries)
               CupertinoButton(
                 padding: const EdgeInsets.symmetric(vertical: 4),
