@@ -400,81 +400,99 @@ class _OnlineMusicScreenState extends ConsumerState<OnlineMusicScreen>
             },
           ),
         ),
-        if (_extension == null &&
-            _source == MusicSource.youtubeMusic &&
-            YoutubeAccountService.supported)
-          CupertinoButton(
-            padding: EdgeInsets.zero,
-            onPressed: _playing ? null : _youtubeAccount,
-            child: const Text(
-              'YouTube account',
-              style: TextStyle(fontSize: 12),
+        // One thin row, hidden while typing, so results stay visible on the
+        // small iPod display.
+        if (!isInputTextBarActive)
+          SizedBox(
+            height: 32,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                if (_extension == null &&
+                    _source == MusicSource.youtubeMusic &&
+                    YoutubeAccountService.supported)
+                  CupertinoButton(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: const Size(0, 32),
+                    onPressed: _playing ? null : _youtubeAccount,
+                    child: const Text(
+                      'YouTube account',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ),
+                if (_source == MusicSource.youtubeMusic ||
+                    _source == MusicSource.youtubePiped)
+                  CupertinoButton(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: const Size(0, 32),
+                    onPressed: _playing ? null : _editProviderServer,
+                    child: const Text('Piped server', style: TextStyle(fontSize: 12)),
+                  ),
+                if (_source == MusicSource.jiosaavn)
+                  CupertinoButton(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: const Size(0, 32),
+                    onPressed: _playing
+                        ? null
+                        : () => _editProviderServer(jiosaavn: true),
+                    child: const Text(
+                      'JioSaavn server',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                  ),
+                if (MornyeExtensionService.supported)
+                  CupertinoButton(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: const Size(0, 32),
+                    onPressed: _playing
+                        ? null
+                        : () async {
+                            final selected =
+                                await Navigator.of(
+                                  context,
+                                  rootNavigator: true,
+                                ).push<bool>(
+                                  CupertinoPageRoute(
+                                    builder: (_) => const HttpAddonSetupScreen(),
+                                  ),
+                                );
+                            if (selected == true && mounted) {
+                              setState(() {
+                                _extension = null;
+                                _source = MusicSource.httpAddon;
+                              });
+                              _search(inputText);
+                            }
+                          },
+                    child: const Text('Custom add-on', style: TextStyle(fontSize: 12)),
+                  ),
+                if (MornyeExtensionService.supported)
+                  CupertinoButton(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: const Size(0, 32),
+                    onPressed: _playing
+                        ? null
+                        : () async {
+                            final selected =
+                                await Navigator.of(
+                                  context,
+                                  rootNavigator: true,
+                                ).push<Map<String, dynamic>>(
+                                  CupertinoPageRoute(
+                                    builder: (_) => const MornyeExtensionsScreen(),
+                                  ),
+                                );
+                            if (selected != null && mounted) {
+                              setState(() => _extension = selected);
+                              _search(inputText);
+                            }
+                          },
+                    child: const Text('Extensions', style: TextStyle(fontSize: 12)),
+                  ),
+                ],
+              ),
             ),
-          ),
-        if (_source == MusicSource.youtubeMusic ||
-            _source == MusicSource.youtubePiped)
-          CupertinoButton(
-            padding: EdgeInsets.zero,
-            onPressed: _playing ? null : _editProviderServer,
-            child: const Text('Piped server', style: TextStyle(fontSize: 12)),
-          ),
-        if (_source == MusicSource.jiosaavn)
-          CupertinoButton(
-            padding: EdgeInsets.zero,
-            onPressed: _playing
-                ? null
-                : () => _editProviderServer(jiosaavn: true),
-            child: const Text(
-              'JioSaavn server',
-              style: TextStyle(fontSize: 12),
-            ),
-          ),
-        if (MornyeExtensionService.supported)
-          CupertinoButton(
-            padding: EdgeInsets.zero,
-            onPressed: _playing
-                ? null
-                : () async {
-                    final selected =
-                        await Navigator.of(
-                          context,
-                          rootNavigator: true,
-                        ).push<bool>(
-                          CupertinoPageRoute(
-                            builder: (_) => const HttpAddonSetupScreen(),
-                          ),
-                        );
-                    if (selected == true && mounted) {
-                      setState(() {
-                        _extension = null;
-                        _source = MusicSource.httpAddon;
-                      });
-                      _search(inputText);
-                    }
-                  },
-            child: const Text('Custom add-on', style: TextStyle(fontSize: 12)),
-          ),
-        if (MornyeExtensionService.supported)
-          CupertinoButton(
-            padding: EdgeInsets.zero,
-            onPressed: _playing
-                ? null
-                : () async {
-                    final selected =
-                        await Navigator.of(
-                          context,
-                          rootNavigator: true,
-                        ).push<Map<String, dynamic>>(
-                          CupertinoPageRoute(
-                            builder: (_) => const MornyeExtensionsScreen(),
-                          ),
-                        );
-                    if (selected != null && mounted) {
-                      setState(() => _extension = selected);
-                      _search(inputText);
-                    }
-                  },
-            child: const Text('Extensions', style: TextStyle(fontSize: 12)),
           ),
         if (_playing && _extension != null)
           const Text(
