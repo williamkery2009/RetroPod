@@ -95,6 +95,9 @@ class MusicMetadata extends HiveObject {
 
   final String? lyrics;
 
+  /// Ephemeral stream credentials. Never serialized to metadata or Hive.
+  final Map<String, String> playbackHeaders;
+
   MusicMetadata({
     this.trackName,
     this.trackArtistNames,
@@ -114,6 +117,7 @@ class MusicMetadata extends HiveObject {
     this.isOnDevice = true,
     this.rating = 0,
     this.lyrics,
+    this.playbackHeaders = const {},
   });
 
   factory MusicMetadata.fromAudioMetadata(
@@ -219,6 +223,7 @@ class MusicMetadata extends HiveObject {
     bool? isOnDevice,
     int? rating,
     String? lyrics,
+    Map<String, String>? playbackHeaders,
   }) {
     return MusicMetadata(
       trackName: trackName ?? this.trackName,
@@ -239,6 +244,7 @@ class MusicMetadata extends HiveObject {
       isOnDevice: isOnDevice ?? this.isOnDevice,
       rating: rating ?? this.rating,
       lyrics: lyrics ?? this.lyrics,
+      playbackHeaders: playbackHeaders ?? this.playbackHeaders,
     );
   }
 
@@ -278,9 +284,13 @@ class MusicMetadata extends HiveObject {
         rating: Rating.newStarRating(RatingStyle.range5stars, rating),
       );
       final uri = Uri.parse(filePath ?? '');
+      final headers = playbackHeaders.isEmpty ? null : playbackHeaders;
+      if (mimeType == 'application/dash+xml') {
+        return DashAudioSource(uri, tag: tag, headers: headers);
+      }
       return mimeType == 'application/vnd.apple.mpegurl'
-          ? HlsAudioSource(uri, tag: tag)
-          : AudioSource.uri(uri, tag: tag);
+          ? HlsAudioSource(uri, tag: tag, headers: headers)
+          : AudioSource.uri(uri, tag: tag, headers: headers);
     }
   }
 

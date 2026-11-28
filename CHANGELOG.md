@@ -1,3 +1,12 @@
+## Unreleased — custom add-on compatibility
+
+- Send manifest-declared defaults to search and stream instead of forcing a
+  quality tier. Preserve endpoint query tokens and exact selected provider IDs.
+- Resolve relative stream URLs, forward validated playback headers in memory,
+  and use explicit DASH/HLS audio sources when the provider declares them.
+- Keep encrypted/hybrid streams unsupported. Wrong-recording playback remains
+  unverified against the live provider, which rejects development requests.
+
 ## Unreleased — custom add-on and sign-in recovery
 
 - Add a configurable Lastwave-format HTTP add-on with manifest validation,

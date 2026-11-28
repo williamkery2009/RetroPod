@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:retropod/core/services/http_addon_service.dart';
 
 void main() {
@@ -16,6 +17,7 @@ void main() {
     'id': 'local-id',
     'url': 'https://provider.example/a/private-token',
     'name': 'Example',
+    'settings': <String, String>{},
   };
 
   test('normalizes manifest URLs and rejects dashboard or credential URLs', () {
@@ -29,7 +31,6 @@ void main() {
       HttpAddonService.setupWebsite,
       'http://provider.example/a/token',
       'https://user:password@provider.example',
-      'https://provider.example/?token=secret',
     ]) {
       expect(
         () => HttpAddonService.baseUrl(value),
@@ -46,7 +47,8 @@ void main() {
         calls.add(request.url);
         expect(request.followRedirects, isFalse);
         expect(request.headers.containsKey('cookie'), isFalse);
-        expect(request.url.queryParameters['quality'], 'lossless');
+        expect(request.url.queryParameters.containsKey('quality'), isFalse);
+        expect(request.url.queryParameters.containsKey('atmos'), isFalse);
         if (request.url.path.endsWith('/search')) {
           expect(request.url.queryParameters['q'], 'A song');
           return http.Response(
@@ -121,9 +123,6 @@ void main() {
         {
           'hybrid': {'key': 'secret'},
         },
-        {
-          'headers': {'Authorization': 'secret'},
-        },
       ]) {
         final client = MockClient(
           (request) async => request.url.path.endsWith('/search')
@@ -184,6 +183,7 @@ void main() {
         expect(call.arguments, {
           'url': 'https://provider.example/a/token',
           'name': 'Test provider',
+          'settings': <String, String>{},
         });
         return '{}';
       });
@@ -214,6 +214,161 @@ void main() {
     await expectLater(
       HttpAddonService(client).configure('https://provider.example'),
       throwsA(isA<HttpAddonException>()),
+    );
+  });
+
+  test('settles declared defaults including untyped settings', () {
+    expect(
+      HttpAddonService.manifestSettings({
+        'settings': [
+          {
+            'key': 'quality',
+            'default': 'HI_RES',
+            'options': ['LOSSLESS', 'HI_RES'],
+          },
+          {'key': 'region', 'default': 'IN'},
+          {
+            'key': 'mode',
+            'default': 'invalid',
+            'options': [
+              {'value': 'direct'},
+            ],
+          },
+          {'key': 'enabled', 'type': 'boolean'},
+          {'key': 'q', 'default': 'wrong song'},
+        ],
+      }),
+      {
+        'quality': 'HI_RES',
+        'region': 'IN',
+        'mode': 'direct',
+        'enabled': 'false',
+      },
+    );
+  });
+
+  test(
+    'legacy endpoints load manifest settings for search and exact-ID stream',
+    () async {
+      final client = MockClient((request) async {
+        expect(request.url.queryParameters['token'], 'private');
+        if (request.url.path.endsWith('/manifest.json')) {
+          return http.Response(
+            jsonEncode({
+              'settings': [
+                {'key': 'quality', 'default': 'HI_RES'},
+                {'key': 'region', 'default': 'IN'},
+              ],
+            }),
+            200,
+          );
+        }
+        expect(request.url.queryParameters['quality'], 'HI_RES');
+        expect(request.url.queryParameters['region'], 'IN');
+        expect(request.url.queryParameters.containsKey('atmos'), isFalse);
+        if (request.url.path.endsWith('/search')) {
+          return http.Response(
+            jsonEncode({
+              'tracks': [
+                {'id': 'first', 'title': 'Other song'},
+                {
+                  'id': 'weeknd/track?1',
+                  'title': 'Blinding Lights',
+                  'artist': 'The Weeknd',
+                },
+              ],
+            }),
+            200,
+          );
+        }
+        expect(request.url.pathSegments.last, 'weeknd/track?1');
+        return http.Response(
+          jsonEncode({
+            'stream': 'media/selected',
+            'format': 'dash',
+            'headers': {'Authorization': 'Bearer playback-secret'},
+          }),
+          200,
+        );
+      });
+      addTearDown(client.close);
+      final legacy = {...config}..remove('settings');
+      legacy['url'] = 'https://provider.example/a/token?token=private';
+      final service = HttpAddonService(
+        client,
+        configuration: () async => legacy,
+      );
+      final selected = (await service.search('Blinding Lights The Weeknd'))[1];
+      final playable = await service.resolve(selected);
+      expect(playable.trackName, 'Blinding Lights');
+      expect(
+        playable.filePath,
+        'https://provider.example/a/token/media/selected',
+      );
+      expect(playable.mimeType, 'application/dash+xml');
+      final audio = playable.toAudioSource() as DashAudioSource;
+      expect(audio.headers, {'Authorization': 'Bearer playback-secret'});
+      expect(playable.toJson(), isNot(contains('playback-secret')));
+      expect(playable.toString(), isNot(contains('playback-secret')));
+      expect(selected.filePath, isNot(contains('private')));
+    },
+  );
+
+  test('HLS MIME and relative URL survive wrapped stream responses', () async {
+    final client = MockClient(
+      (request) async => http.Response(
+        jsonEncode(
+          request.url.path.endsWith('/search')
+              ? [
+                  {'id': '1', 'title': 'Song'},
+                ]
+              : {
+                  'data': {
+                    'url': '/audio/live',
+                    'mime': 'application/x-mpegURL',
+                    'headers': {},
+                  },
+                },
+        ),
+        200,
+      ),
+    );
+    addTearDown(client.close);
+    final service = HttpAddonService(client, configuration: () async => config);
+    final playable = await service.resolve(
+      (await service.search('Song')).single,
+    );
+    expect(playable.filePath, 'https://provider.example/audio/live');
+    expect(playable.toAudioSource(), isA<HlsAudioSource>());
+  });
+
+  test('rejects header injection without disclosing credentials', () async {
+    final client = MockClient(
+      (request) async => http.Response(
+        jsonEncode(
+          request.url.path.endsWith('/search')
+              ? [
+                  {'id': '1', 'title': 'Song'},
+                ]
+              : {
+                  'url': 'https://audio.example/song',
+                  'headers': {'X-Test': 'secret\r\nInjected: yes'},
+                },
+        ),
+        200,
+      ),
+    );
+    addTearDown(client.close);
+    final service = HttpAddonService(client, configuration: () async => config);
+    await expectLater(
+      service.resolve((await service.search('Song')).single),
+      throwsA(
+        predicate<HttpAddonException>(
+          (e) =>
+              e.message.contains('ADDON_HEADERS') &&
+              !e.message.contains('secret'),
+        ),
+      ),
     );
   });
 }

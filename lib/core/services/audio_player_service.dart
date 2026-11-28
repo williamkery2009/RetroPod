@@ -13,7 +13,7 @@ import 'package:retropod/features/now_playing/provider/now_playing_details_provi
 import 'package:retropod/features/settings/controller/settings_preferences_controller.dart';
 
 final audioPlayerProvider = Provider<AudioPlayer>((_) {
-  return AudioPlayer();
+  return AudioPlayer(useProxyForRequestHeaders: false);
 });
 
 final audioPlayerServiceProvider =

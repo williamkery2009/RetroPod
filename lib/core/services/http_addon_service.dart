@@ -28,16 +28,16 @@ class HttpAddonService {
         uri.scheme != 'https' ||
         uri.host.isEmpty ||
         uri.userInfo.isNotEmpty ||
-        uri.hasQuery ||
         uri.hasFragment ||
         value.length > 8192) {
       throw const HttpAddonException(
-        'Enter your private HTTPS add-on base or manifest URL without query parameters (ADDON_URL).',
+        'Enter your private HTTPS add-on base or manifest URL (ADDON_URL).',
       );
     }
     var path = uri.path.replaceAll(RegExp(r'/+$'), '');
-    if (path.endsWith('/manifest.json'))
+    if (path.endsWith('/manifest.json')) {
       path = path.substring(0, path.length - 14);
+    }
     if (uri.host == Uri.parse(setupWebsite).host && path.isEmpty) {
       throw const HttpAddonException(
         'This is the signup website. Use the personal add-on URL from your verified dashboard (ADDON_SETUP).',
@@ -73,8 +73,15 @@ class HttpAddonService {
         'The URL did not return an add-on manifest (ADDON_MANIFEST).',
       );
     }
-    final resources = manifest['resources'];
-    if (resources is List &&
+    final declared = manifest['resources'];
+    final resources = declared is List
+        ? declared
+              .map((r) => r is Map ? r['name'] ?? r['type'] : r)
+              .whereType<String>()
+              .map((r) => r.toLowerCase())
+              .toList()
+        : null;
+    if (resources != null &&
         resources.isNotEmpty &&
         (!resources.contains('search') || !resources.contains('stream'))) {
       throw const HttpAddonException(
@@ -85,6 +92,7 @@ class HttpAddonService {
       await _channel.invokeMethod<String>('set', {
         'url': base.toString(),
         'name': manifest['name'],
+        'settings': manifestSettings(manifest),
       });
     } catch (_) {
       throw const HttpAddonException(
@@ -113,10 +121,82 @@ class HttpAddonService {
     return config;
   }
 
+  /// Only declared settings travel to the provider; do not guess quality tiers.
+  static Map<String, String> manifestSettings(Map manifest) {
+    final result = <String, String>{};
+    final rows = manifest['settings'];
+    if (rows is! List) return result;
+    for (final row in rows.whereType<Map>().take(20)) {
+      final key = row['key'] ?? row['id'] ?? row['name'];
+      if (key is! String ||
+          !RegExp(r'^[A-Za-z0-9_.-]{1,64}$').hasMatch(key) ||
+          key == 'q') {
+        continue;
+      }
+      final options = row['options'];
+      final values = options is List
+          ? options
+                .map((o) => o is Map ? o['value'] : o)
+                .where((v) => v is String || v is num || v is bool)
+                .map((v) => v.toString())
+                .toList()
+          : <String>[];
+      final raw = row['default'];
+      var value = raw is String || raw is num || raw is bool
+          ? raw.toString()
+          : null;
+      if (values.isNotEmpty && !values.contains(value)) value = values.first;
+      if ([
+            'boolean',
+            'bool',
+            'toggle',
+            'switch',
+            'checkbox',
+          ].contains(row['type']) &&
+          value != 'true' &&
+          value != 'false') {
+        value = 'false';
+      }
+      if (value != null && value.length <= 256) result[key] = value;
+    }
+    return result;
+  }
+
+  Future<Map<String, String>> _settings(Map<String, dynamic> config) async {
+    final saved = config['settings'];
+    if (saved is Map) return Map<String, String>.from(saved);
+    // Upgrade endpoints saved before manifest settings were supported.
+    final base = baseUrl(config['url'] as String);
+    final manifest = await _get(
+      base.replace(path: '${base.path}/manifest.json'),
+    );
+    if (manifest is! Map) {
+      throw const HttpAddonException('Invalid manifest (ADDON_MANIFEST).');
+    }
+    return manifestSettings(manifest);
+  }
+
+  static Uri _endpoint(
+    Uri base,
+    List<String> path,
+    Map<String, String> params,
+  ) {
+    final query = Uri(queryParameters: params).query;
+    return base.replace(
+      pathSegments: [...base.pathSegments.where((s) => s.isNotEmpty), ...path],
+      query: [
+        if (base.hasQuery) base.query,
+        if (query.isNotEmpty) query,
+      ].join('&'),
+    );
+  }
+
   Future<Object?> _get(Uri uri) async {
     try {
       final request = http.Request('GET', uri)..followRedirects = false;
       request.headers['Accept'] = 'application/json';
+      request.headers['User-Agent'] = 'RetroPod';
+      request.headers['Cache-Control'] = 'no-cache';
       final response = await _client
           .send(request)
           .timeout(const Duration(seconds: 15));
@@ -151,15 +231,9 @@ class HttpAddonService {
     if (query.trim().isEmpty) return [];
     final config = await _config();
     final base = baseUrl(config['url'] as String);
+    final settings = await _settings(config);
     final data = await _get(
-      base.replace(
-        path: '${base.path}/search',
-        queryParameters: {
-          'q': query.trim(),
-          'quality': 'lossless',
-          'atmos': 'none',
-        },
-      ),
+      _endpoint(base, ['search'], {'q': query.trim(), ...settings}),
     );
     final rows = data is List
         ? data
@@ -227,47 +301,112 @@ class HttpAddonService {
       );
     }
     final base = baseUrl(config['url'] as String);
-    final endpoint = base.replace(
-      pathSegments: [
-        ...base.pathSegments.where((s) => s.isNotEmpty),
-        'stream',
-        ref.pathSegments.last,
-      ],
-      queryParameters: {'quality': 'lossless', 'atmos': 'none'},
-    );
+    final settings = await _settings(config);
+    final endpoint = _endpoint(base, [
+      'stream',
+      ref.pathSegments.last,
+    ], settings);
     final data = await _get(endpoint);
-    final stream = data is Map ? data['stream'] ?? data['data'] ?? data : null;
+    final nested = data is Map ? data['stream'] ?? data['data'] : null;
+    final stream = nested is Map ? nested : data;
     if (stream is! Map) {
       throw const HttpAddonException(
         'Invalid stream response (ADDON_RESPONSE).',
       );
     }
-    if (stream['encrypted'] == true ||
+    if (_flag(stream['encrypted']) ||
         stream['hybrid'] != null ||
-        stream['drm'] != null ||
-        stream['licenseUrl'] != null ||
-        stream['headers'] != null) {
+        (stream['drm'] != null && stream['drm'] != false) ||
+        stream['licenseUrl'] != null) {
       throw const HttpAddonException(
-        'This provider requires encrypted playback, a license or custom headers not supported by RetroPod (ADDON_UNSUPPORTED).',
+        'This provider requires encrypted playback or a license not supported by RetroPod (ADDON_UNSUPPORTED).',
       );
     }
+    final headers = _playbackHeaders(stream['headers']);
     for (final key in [
       'url',
+      'stream',
       'directUrl',
       'streamUrl',
       'downloadUrl',
       'mediaUrl',
     ]) {
       final value = stream[key];
-      final uri = value is String ? Uri.tryParse(value) : null;
+      final relative = value is String && value.trim().isNotEmpty
+          ? Uri.tryParse(value.trim())
+          : null;
+      final uri = relative == null
+          ? null
+          : base.replace(path: '${base.path}/', query: '').resolveUri(relative);
       if (uri?.scheme == 'https' &&
           uri!.host.isNotEmpty &&
           uri.userInfo.isEmpty) {
-        return song.copyWith(filePath: uri.toString());
+        return song.copyWith(
+          filePath: uri.toString(),
+          mimeType: _streamMime(stream, uri),
+          playbackHeaders: headers,
+        );
       }
     }
     throw const HttpAddonException(
       'Add-on returned no direct HTTPS audio (ADDON_NO_AUDIO).',
     );
+  }
+
+  static bool _flag(Object? value) =>
+      value == true ||
+      value == 1 ||
+      value == '1' ||
+      (value is String && value.toLowerCase() == 'true');
+
+  static Map<String, String> _playbackHeaders(Object? raw) {
+    if (raw == null) return const {};
+    if (raw is! Map || raw.length > 10) {
+      throw const HttpAddonException(
+        'Invalid playback headers (ADDON_HEADERS).',
+      );
+    }
+    final headers = <String, String>{};
+    for (final entry in raw.entries) {
+      final key = entry.key;
+      final value = entry.value;
+      if (key is! String ||
+          value is! String ||
+          !RegExp(r'^[A-Za-z0-9-]{1,64}$').hasMatch(key) ||
+          value.length > 8192 ||
+          value.contains('\r') ||
+          value.contains('\n') ||
+          [
+            'host',
+            'content-length',
+            'connection',
+            'transfer-encoding',
+          ].contains(key.toLowerCase())) {
+        throw const HttpAddonException(
+          'Invalid playback headers (ADDON_HEADERS).',
+        );
+      }
+      headers[key] = value;
+    }
+    return Map.unmodifiable(headers);
+  }
+
+  static String? _streamMime(Map stream, Uri uri) {
+    final mime = '${stream['mimeType'] ?? stream['mime'] ?? ''}'.toLowerCase();
+    final format =
+        '${stream['format'] ?? stream['manifest'] ?? stream['type'] ?? ''}'
+            .toLowerCase();
+    final path = uri.path.toLowerCase();
+    if (mime.contains('dash') ||
+        ['dash', 'mpd'].contains(format) ||
+        path.endsWith('.mpd')) {
+      return 'application/dash+xml';
+    }
+    if (mime.contains('mpegurl') ||
+        ['hls', 'm3u8'].contains(format) ||
+        path.endsWith('.m3u8')) {
+      return 'application/vnd.apple.mpegurl';
+    }
+    return mime.startsWith('audio/') ? mime : null;
   }
 }
