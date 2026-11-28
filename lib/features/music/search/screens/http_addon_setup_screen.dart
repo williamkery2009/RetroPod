@@ -17,6 +17,7 @@ class _HttpAddonSetupScreenState extends State<HttpAddonSetupScreen> {
   String? _name;
   String? _message;
   bool _busy = false;
+  List<HttpAddonSetting> _settings = const [];
 
   @override
   void initState() {
@@ -28,6 +29,7 @@ class _HttpAddonSetupScreenState extends State<HttpAddonSetupScreen> {
     try {
       final config = await HttpAddonService.readConfiguration();
       if (mounted) setState(() => _name = config?['name'] as String?);
+      if (config != null) await _loadSettings();
     } catch (_) {
       if (mounted) {
         setState(
@@ -35,6 +37,43 @@ class _HttpAddonSetupScreenState extends State<HttpAddonSetupScreen> {
               'Could not read the saved add-on. You can remove it or connect again.',
         );
       }
+    }
+  }
+
+  Future<void> _loadSettings() async {
+    try {
+      final settings = await HttpAddonService(_client).editableSettings();
+      if (mounted) setState(() => _settings = settings);
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _settings = const [];
+          _message = error is HttpAddonException
+              ? error.message
+              : 'Could not load add-on settings.';
+        });
+      }
+    }
+  }
+
+  Future<void> _choose(String key, String value) async {
+    setState(() {
+      _busy = true;
+      _message = null;
+    });
+    try {
+      await HttpAddonService(_client).updateSetting(key, value);
+      await _loadSettings();
+    } catch (error) {
+      if (mounted) {
+        setState(
+          () => _message = error is HttpAddonException
+              ? error.message
+              : 'Could not save the add-on setting.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -106,6 +145,27 @@ class _HttpAddonSetupScreenState extends State<HttpAddonSetupScreen> {
             child: const Text('Open setup website'),
           ),
           if (_name != null) Text('Configured: $_name'),
+          for (final setting in _settings) ...[
+            const SizedBox(height: 12),
+            Text(
+              setting.label,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            for (final option in setting.options.entries)
+              CupertinoButton(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                onPressed: _busy || option.key == setting.value
+                    ? null
+                    : () => _choose(setting.key, option.key),
+                child: Row(
+                  children: [
+                    Expanded(child: Text(option.value)),
+                    if (option.key == setting.value)
+                      const Icon(CupertinoIcons.check_mark),
+                  ],
+                ),
+              ),
+          ],
           const SizedBox(height: 12),
           CupertinoTextField(
             controller: _url,
@@ -149,6 +209,7 @@ class _HttpAddonSetupScreenState extends State<HttpAddonSetupScreen> {
                       if (mounted) {
                         setState(() {
                           _name = null;
+                          _settings = const [];
                           _message = 'Private URL removed.';
                         });
                       }

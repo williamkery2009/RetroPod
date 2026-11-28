@@ -11,6 +11,22 @@ class HttpAddonException implements Exception {
   String toString() => message;
 }
 
+/// A manifest-declared choice the listener can change, such as quality.
+class HttpAddonSetting {
+  const HttpAddonSetting({
+    required this.key,
+    required this.label,
+    required this.value,
+    required this.options,
+  });
+  final String key;
+  final String label;
+  final String value;
+
+  /// Provider value to display label.
+  final Map<String, String> options;
+}
+
 /// Independent client for Lastwave's manifest/search/stream HTTP protocol.
 class HttpAddonService {
   HttpAddonService(
@@ -160,6 +176,70 @@ class HttpAddonService {
       if (value != null && value.length <= 256) result[key] = value;
     }
     return result;
+  }
+
+  /// Selectable settings from the live manifest with the saved choices.
+  Future<List<HttpAddonSetting>> editableSettings() async {
+    final config = await _config();
+    final base = baseUrl(config['url'] as String);
+    final manifest = await _get(
+      base.replace(path: '${base.path}/manifest.json'),
+    );
+    if (manifest is! Map) {
+      throw const HttpAddonException('Invalid manifest (ADDON_MANIFEST).');
+    }
+    final defaults = manifestSettings(manifest);
+    final saved = config['settings'];
+    final rows = manifest['settings'];
+    final result = <HttpAddonSetting>[];
+    for (final row in rows is List ? rows.whereType<Map>() : <Map>[]) {
+      final key = row['key'] ?? row['id'] ?? row['name'];
+      final raw = row['options'];
+      if (key is! String || !defaults.containsKey(key) || raw is! List) {
+        continue;
+      }
+      final options = <String, String>{};
+      for (final option in raw.take(20)) {
+        final value = option is Map ? option['value'] : option;
+        if (value is! String && value is! num && value is! bool) continue;
+        final text = value.toString();
+        if (text.length > 256) continue;
+        final label = option is Map ? option['label'] : null;
+        options[text] = label is String && label.isNotEmpty ? label : text;
+      }
+      if (options.isEmpty) continue;
+      final current = saved is Map ? saved[key] : null;
+      final label = row['label'] ?? row['title'];
+      result.add(
+        HttpAddonSetting(
+          key: key,
+          label: label is String && label.isNotEmpty ? label : key,
+          value: options.containsKey(current)
+              ? current as String
+              : defaults[key]!,
+          options: options,
+        ),
+      );
+    }
+    return result;
+  }
+
+  /// Saves one choice. The configuration ID stays, so results remain valid.
+  Future<void> updateSetting(String key, String value) async {
+    final config = await _config();
+    final settings = {...await _settings(config), key: value};
+    try {
+      await _channel.invokeMethod<String>('set', {
+        'id': config['id'],
+        'url': config['url'],
+        'name': config['name'],
+        'settings': settings,
+      });
+    } catch (_) {
+      throw const HttpAddonException(
+        'Could not save the add-on setting (ADDON_STORAGE).',
+      );
+    }
   }
 
   Future<Map<String, String>> _settings(Map<String, dynamic> config) async {
@@ -341,6 +421,11 @@ class HttpAddonService {
       if (uri?.scheme == 'https' &&
           uri!.host.isNotEmpty &&
           uri.userInfo.isEmpty) {
+        if (_isDecoy(uri)) {
+          throw const HttpAddonException(
+            'The provider sent a prank file instead of this song. It may not allow playback in RetroPod. Contact the provider (ADDON_DECOY).',
+          );
+        }
         return song.copyWith(
           filePath: uri.toString(),
           mimeType: _streamMime(stream, uri),
@@ -352,6 +437,11 @@ class HttpAddonService {
       'Add-on returned no direct HTTPS audio (ADDON_NO_AUDIO).',
     );
   }
+
+  /// LastWave Addons was seen answering stream requests from this repository.
+  static bool _isDecoy(Uri uri) =>
+      uri.host.toLowerCase() == 'cdn.jsdelivr.net' &&
+      uri.path.toLowerCase().contains('/pranks-cdn');
 
   static bool _flag(Object? value) =>
       value == true ||
