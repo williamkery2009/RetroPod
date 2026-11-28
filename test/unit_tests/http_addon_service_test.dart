@@ -438,4 +438,103 @@ void main() {
       ),
     );
   });
+
+  test('reads artist lists, album objects and other duration shapes', () async {
+    final client = MockClient(
+      (_) async => http.Response(
+        jsonEncode({
+          'results': [
+            {
+              'id': 'a',
+              'name': 'First',
+              'artists': [
+                {'name': 'One'},
+                'Two',
+              ],
+              'album': {'title': 'Record'},
+              'duration': '3:21',
+            },
+            {'id': 'b', 'title': 'Second', 'durationMs': 90500},
+          ],
+        }),
+        200,
+      ),
+    );
+    addTearDown(client.close);
+    final songs = await HttpAddonService(
+      client,
+      configuration: () async => config,
+    ).search('x');
+    expect(songs.first.trackName, 'First');
+    expect(songs.first.trackArtistNames, ['One', 'Two']);
+    expect(songs.first.albumName, 'Record');
+    expect(songs.first.trackDuration, 201000);
+    expect(songs.last.trackDuration, 90500);
+  });
+
+  test('retries a gateway failure once', () async {
+    var calls = 0;
+    final client = MockClient(
+      (_) async => ++calls == 1
+          ? http.Response('', 503)
+          : http.Response('[{"id":"1","title":"Song"}]', 200),
+    );
+    addTearDown(client.close);
+    final songs = await HttpAddonService(
+      client,
+      configuration: () async => config,
+    ).search('x');
+    expect(songs, hasLength(1));
+    expect(calls, 2);
+  });
+
+  test('stops asking a rate limited provider until Retry-After', () async {
+    var calls = 0;
+    final client = MockClient((_) async {
+      calls++;
+      return http.Response('', 429, headers: {'retry-after': '60'});
+    });
+    addTearDown(client.close);
+    final service = HttpAddonService(
+      client,
+      configuration: () async => {
+        ...config,
+        'url': 'https://limited.example/a',
+      },
+    );
+    for (var i = 0; i < 2; i++) {
+      await expectLater(
+        service.search('x'),
+        throwsA(
+          predicate<HttpAddonException>(
+            (e) => e.message.contains('ADDON_RATE_LIMIT'),
+          ),
+        ),
+      );
+    }
+    expect(calls, 1);
+  });
+
+  test('offers on/off and free text settings', () async {
+    final client = MockClient(
+      (_) async => http.Response(
+        jsonEncode({
+          'settings': [
+            {'key': 'explicit', 'type': 'toggle'},
+            {'key': 'region', 'type': 'text'},
+          ],
+        }),
+        200,
+      ),
+    );
+    addTearDown(client.close);
+    final settings = await HttpAddonService(
+      client,
+      configuration: () async => config,
+    ).editableSettings();
+    expect(settings.first.options, {'true': 'On', 'false': 'Off'});
+    expect(settings.first.value, 'false');
+    expect(settings.last.options, isEmpty);
+    expect(settings.last.value, '');
+  });
 }
