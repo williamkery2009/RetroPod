@@ -11,3 +11,12 @@ License, as described in the LICENSE file.
 
 Original Classipod repository:
 https://github.com/adeeteya/Classipod
+
+YouTube Music provider references:
+- sigma67/ytmusicapi documents the Innertube songs search request shape.
+- youtube_explode_dart 3.1.0 (BSD-3-Clause) resolves audio streams.
+Its license is included in LICENSE-YOUTUBE-EXPLODE.
+- The temporary VISIONOS client profile follows the upstream proposal:
+  https://github.com/Hexer10/youtube_explode_dart/pull/389
+The Kotlin documentation sample references NewPipe Extractor (GPL-3.0-or-later);
+NewPipe is not linked into the Flutter application.

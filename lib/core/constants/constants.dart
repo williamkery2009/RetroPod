@@ -10,7 +10,7 @@ class Constants {
   static const String androidDefaultMusicFolderPath =
       "/storage/emulated/0/Music";
   static const String defaultNotificationAlbumArtImageUrl =
-      "'https://files.radio.co/humorous-skink/staging/default-artwork.png'";
+      "https://files.radio.co/humorous-skink/staging/default-artwork.png";
 
   // Click Wheel Sensitivity Constants
   static const double clickWheelVeryLowSensitivitySmallThreshold = 64;

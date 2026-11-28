@@ -1,0 +1,25 @@
+name: Mornye runtime checks
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  runtime:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.100.0
+      - name: Prepare pinned runtime
+        run: bash scripts/prepare_mornye_runtime.sh
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: build/mornye-source/rust_backend
+      - name: Test bridge and package validation
+        working-directory: build/mornye-source/rust_backend
+        run: |
+          cargo test -p retropod-extensions
+          cargo test -p mornye-extensions package::

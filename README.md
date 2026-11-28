@@ -20,6 +20,41 @@ favorite tracks with the same ease as the original iPod.
 personal music collection takes center stage. Organize your tracks, albums, and playlists just like
 you did on your trusty iPod Classic.
 
+**Online Music:** Open Music > Online Music to search iTunes previews, Deezer
+previews, Internet radio, or experimental YouTube Music. Select the Source row to cycle services. Use the
+existing search input, then press Menu to browse results with the click wheel.
+Previews are excerpts, not full recordings; radio plays live HTTPS streams.
+YouTube Music uses unauthenticated Innertube song search and youtube_explode_dart
+to resolve audio at playback time. It needs no Data API key, but extraction can
+fail when YouTube changes its service or restricts a connection. An Open YouTube
+Music action is available when playback fails. Errors distinguish sign-in
+requirements, HTTP 403, rate limits, and timeouts without exposing stream URLs.
+The extraction client temporarily follows the compatibility profile proposed in
+[youtube_explode_dart PR #389](https://github.com/Hexer10/youtube_explode_dart/pull/389);
+this is not a guarantee of anonymous playback on every connection. RetroPod has
+no YouTube account sign-in flow. Signed audio URLs are not saved as
+library identifiers. Long-lived queues may need to be reselected if URLs expire.
+Availability depends on your region, the provider, and browser CORS support.
+
+**Lyric Focus:** Inactive lines use the base branch’s shadow-based blur. The current line
+and lines being manually browsed remain sharp; distant lines do not suddenly
+become sharper than nearby ones.
+
+For a separate Kotlin/NewPipe/Media3 reference, see the
+[native Android architecture and code](docs/native-youtube-music/README.md).
+
+**Online Lyrics:** In Now Playing options, choose Find lyrics (LRCLIB) for a local
+song without embedded lyrics. Existing lyrics are preserved. Matching uses title,
+artist, album and duration. Line synchronization is available when LRCLIB provides
+it; word timing still requires an enhanced LRC source.
+
+Provider references: [public-apis music directory](https://github.com/public-apis/public-apis#music),
+[iTunes Search](https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/),
+[Radio Browser](https://api.radio-browser.info/), and [LRCLIB](https://lrclib.net/docs).
+The [Mornye project](https://github.com/mornyeapp/Mornye) also uses Deezer's public
+catalog API and LRCLIB. These integrations independently call the same services;
+no Mornye source code, credentials, or private download endpoints are bundled.
+
 **Customizable Themes:** Personalize your RetroPod experience with the option of silver or grey
 device frame. Choose from the two different color schemes to tailor the app's appearance to your
 unique style.
@@ -209,3 +244,77 @@ See [NOTICE](https://github.com/RchrdAriza/RetroPod/blob/master/NOTICE) for deta
 
 <a href="https://www.flaticon.com/free-icons/ipod" title="ipod icons">Ipod icons created by
 Freepik - Flaticon</a>
+
+### Piped playback
+
+Select **YouTube Music via Piped** in Online Music to resolve audio through Piped
+instead of the on-device extractor. Song search still uses YouTube Music.
+The original YouTube Music source also tries Piped once if extraction fails.
+A player error after a URL has resolved does not automatically retry; select the
+Piped source explicitly in that case.
+
+Tap **Piped server** to save an HTTPS **API** base URL. The initial address is
+`https://pipedapi.kavin.rocks`, from the project's public-instance directory;
+it is not a guaranteed working endpoint. Your selected server receives video IDs
+and supplies temporary audio URLs. No account cookies or credentials are sent.
+
+The adapter uses `/streams/{videoId}`, prefers HTTPS M4A audio, then WebM, and
+rejects video-only streams and malformed responses. Stable YouTube IDs remain in
+the library. Errors distinguish server failure, timeout, and missing audio.
+
+Public-instance probes on 2026-11-26 did not find a working audio result from this
+environment: responses included timeouts, non-JSON pages, HTTP failures and
+YouTube sign-in challenges. Integration tests use mocked HTTP; successful real
+playback still requires an available instance on the device's connection.
+
+References: [Piped API](https://docs.piped.video/docs/api-documentation/) and
+[public instances](https://github.com/TeamPiped/documentation/blob/main/content/docs/public-instances/index.md).
+
+### Audius
+
+Select **Audius** in Online Music to search its catalogue. Public, streamable
+tracks are playable through Audius's HTTPS stream endpoint; gated, deleted,
+unlisted and unavailable tracks are excluded. Titles and uploader names remain
+visible, including remix labels. Audius results are never substituted for songs
+selected from another provider. Its catalogue is not equivalent to YouTube's.
+
+A live check returned search results and 1,024 MP3 bytes (HTTP 206) for
+“Blinding Lights - Zaza Remix”; this is a connectivity check, not a complete
+device playback test or confirmation of the original recording's availability.
+No new account credentials or dependencies are required for this public source.
+
+### SoundCloud and JioSaavn
+
+**SoundCloud** searches public tracks and resolves fresh streams on selection.
+It discovers the public web client identifier from SoundCloud's own assets,
+without account cookies. Preview-only, private and blocked tracks are excluded.
+Original titles and uploader names remain visible. HLS streams use an explicit
+HLS audio source, and only stable track identifiers are retained in the queue.
+A live check retrieved search results, a 77-segment HLS playlist and 1,024 bytes
+of an audio segment (HTTP 206, audio/mp4). Device playback remains to be tested.
+
+**JioSaavn (experimental)** supports the open-source
+[sumitkolhe/jiosaavn-api](https://github.com/sumitkolhe/jiosaavn-api) schema.
+Tap **JioSaavn server** to change the HTTPS API base URL (usually including
+`/api`). Your configured server receives queries and track IDs; no credentials
+are sent. Track details are refreshed before playback and only HTTPS Saavn CDN
+audio URLs are accepted. The best bitrate returned by the server is selected;
+AAC/MP3 quality is not lossless.
+
+The initial JioSaavn server is `https://saavn.dev/api`. Recent probes returned
+503 from that host, 429 from saavn.sumit.co, and 403 from the direct JioSaavn
+API. No working JioSaavn stream was verified here. This adapter needs a working
+compatible server; adding the source does not remove that requirement.
+
+The SoundCloud request/response behaviour was reviewed against Mornye's
+[source-backed provider](https://github.com/mornyeapp/Mornye-Extension/tree/main/sources/soundcloud).
+RetroPod's adapter is independently implemented in Dart; Mornye extension code
+is not bundled or executed.
+
+### Mornye extension packages (Android, experimental)
+
+Online Music → Extensions can install/update packages from the Mornye catalog,
+manage settings, and select an installed extension for search. Audio-capable
+extensions prepare a private audio file before playback. Metadata-only packages
+cannot play songs. Account/browser authorization and Mornye session grants are
+not integrated. See [compatibility and build instructions](native/README.md).

@@ -28,7 +28,7 @@ android {
 
     defaultConfig {
         applicationId = "com.rchrdariza.retropod"
-        minSdk = flutter.minSdkVersion
+        minSdk = maxOf(23, flutter.minSdkVersion)
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -56,6 +56,7 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
         getByName("release") {
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // Fallback to debug signing if the release keystore isn't configured
             val storeFilePath = keystoreProperties["storeFile"] as? String
             signingConfig = if (storeFilePath != null) {
@@ -91,3 +92,35 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+// Mornye's QuickJS host and bounded audio conversion commands.
+dependencies {
+    testImplementation("junit:junit:4.13.2")
+    implementation("net.java.dev.jna:jna:5.19.1@aar")
+    implementation("com.antonkarpenko:ffmpeg-kit-audio:2.3.0")
+}
+
+val buildMornyeRuntime = tasks.register<Exec>("buildMornyeRuntime") {
+    workingDir(rootProject.projectDir.parentFile)
+    commandLine("bash", "scripts/build_mornye_runtime.sh")
+    environment("ANDROID_NDK_HOME", android.sdkDirectory.resolve("ndk/${android.ndkVersion}").absolutePath)
+    inputs.dir(rootProject.file("../native/mornye_bridge"))
+    inputs.file(rootProject.file("../scripts/prepare_mornye_runtime.sh"))
+    inputs.file(rootProject.file("../scripts/build_mornye_runtime.sh"))
+    outputs.dir(file("src/main/jniLibs"))
+}
+tasks.named("preBuild").configure { dependsOn(buildMornyeRuntime) }
+
+// Preserve the audio distribution's per-library licenses and exact-source notices.
+val ffmpegNotices by configurations.creating {
+    isTransitive = false
+}
+dependencies {
+    add(ffmpegNotices.name, "com.antonkarpenko:ffmpeg-kit-audio:2.3.0@aar")
+}
+val copyFfmpegNotices = tasks.register<Sync>("copyFfmpegNotices") {
+    from({ ffmpegNotices.map { zipTree(it) } }) { include("LICENSES/**") }
+    into(layout.buildDirectory.dir("generated/ffmpegNotices"))
+}
+android.sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/ffmpegNotices").get().asFile)
+tasks.named("preBuild").configure { dependsOn(copyFfmpegNotices) }

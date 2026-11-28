@@ -1,0 +1,18 @@
+RetroPod's Android extension runtime includes Mornye (LGPL-3.0-only),
+https://github.com/mornyeapp/Mornye at af9a4d6422759541ec57a9ed696b3b47928a1bff.
+Copyright belongs to the Mornye contributors. The library is unmodified;
+RetroPod's C ABI bridge is also LGPL-3.0-only.
+
+Source and reproducible integration/build instructions:
+https://github.com/williamkery2009/RetroPod/tree/fix/lyrics-and-music-sources/native
+The runtime source is included as a separate artifact alongside test APKs.
+You may modify/rebuild/replace the library and rebuild/sign the application.
+No restriction is imposed on reverse engineering to debug library modifications.
+
+FFmpegKit audio is provided by com.antonkarpenko:ffmpeg-kit-audio:2.3.0.
+Its complete per-library license texts and source notices are bundled in
+the APK assets/LICENSES/ directory. Upstream project: https://github.com/sk3llo/ffmpeg_kit_flutter/tree/audio
+JNA is dual licensed LGPL-2.1-or-later / Apache-2.0:
+https://github.com/java-native-access/jna
+
+Downloaded extensions retain their own LICENSE, COPYING and NOTICE files.
